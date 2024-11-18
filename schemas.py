@@ -17,6 +17,36 @@ class ProductBase(BaseModel):
 class ProductCreate(ProductBase):
     pass
 
+class ProductUpdate(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    price: Optional[int] = None
+    quantity: Optional[int] = None
+    category_id: Optional[int] = None
+
+    class Config:
+        from_attributes = True
+
+
+# Esquema para crear o actualizar una relación warehouse-product
+class WarehouseProductCreate(BaseModel):
+    warehouse_id: int
+    product_id: int
+    stock: int
+
+# Esquema para actualizar solo el stock
+class WarehouseProductUpdate(BaseModel):
+    stock: int
+
+# Esquema para devolver un warehouse-product
+class WarehouseProduct(BaseModel):
+    warehouse_id: int
+    product_id: int
+    stock: int
+
+    class Config:
+        from_attributes = True
+
 # Producto con referencia simple a la categoría
 class Product(ProductBase):
     id: int
@@ -44,6 +74,7 @@ class Category(CategoryBase):
 # Esquema para el movimiento de inventario
 class InventoryMovementBase(BaseModel):
     product_id: int
+    invoice_id: int
     movement_type: str
     quantity: int
 
@@ -85,3 +116,29 @@ class Login(BaseModel):
 class Token(BaseModel):
     access_token: str
     token_type: str
+
+class CreditMovementCreate(BaseModel):
+    invoice_id: int
+    amount: float
+    movement_type: str  # 'nota_credito', 'devolucion'
+
+class InvoiceItem(BaseModel):
+    product_id: int
+    quantity: int
+    price_per_unit: float
+    total_price: float
+
+    class Config:
+        from_attributes = True
+
+class Invoice(BaseModel):
+    customer_id: int
+    warehouse_id: int
+    status: str  # 'presupuesto', 'factura', etc.
+    date: datetime
+    total_amount: float
+    items: List[InvoiceItem]   
+
+
+    class Config:
+        from_attributes = True

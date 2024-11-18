@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, ForeignKey, DateTime
+from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, Float
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from database import Base
@@ -6,6 +6,60 @@ from passlib.context import CryptContext
 
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+
+# Cliente
+class Customer(Base):
+    __tablename__ = 'customers'
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, index=True)
+    email = Column(String, unique=True, index=True)
+    phone = Column(String)
+    address = Column(String)
+
+    invoices = relationship("Invoice", back_populates="customer")
+
+# Factura
+class Invoice(Base):
+    __tablename__ = 'invoices'
+
+    id = Column(Integer, primary_key=True, index=True)
+    customer_id = Column(Integer, ForeignKey('customers.id'))
+    date = Column(DateTime, default=func.now())
+    total_amount = Column(Float)
+    status = Column(String)  # 'presupuesto', 'factura', 'nota_credito', 'devolucion'
+    warehouse_id = Column(Integer)
+
+
+    customer = relationship("Customer", back_populates="invoices")
+    invoice_items = relationship("InvoiceItem", back_populates="invoice")
+
+# Detalle de la Factura
+class InvoiceItem(Base):
+    __tablename__ = 'invoice_items'
+
+    id = Column(Integer, primary_key=True, index=True)
+    invoice_id = Column(Integer, ForeignKey('invoices.id'))
+    product_id = Column(Integer, ForeignKey('products.id'))
+    quantity = Column(Integer)
+    price_per_unit = Column(Float)
+    total_price = Column(Float)
+
+    invoice = relationship("Invoice", back_populates="invoice_items")
+    product = relationship("Product")
+
+# Movimiento de Crédito (para notas de crédito y devoluciones)
+class CreditMovement(Base):
+    __tablename__ = 'credit_movements'
+
+    id = Column(Integer, primary_key=True, index=True)
+    invoice_id = Column(Integer, ForeignKey('invoices.id'))
+    amount = Column(Float)
+    movement_type = Column(String)  # 'nota_credito' o 'devolucion'
+    date = Column(DateTime, default=func.now())
+
+    invoice = relationship("Invoice")
 
 # Categoría de producto
 class Category(Base):
@@ -59,6 +113,7 @@ class InventoryMovement(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     product_id = Column(Integer, ForeignKey('products.id'))
+    invoice_id = Column(Integer)
     movement_type = Column(String)  # Puede ser 'entrada', 'salida'
     quantity = Column(Integer)
     timestamp = Column(DateTime, default=func.now())

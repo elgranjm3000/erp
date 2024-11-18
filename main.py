@@ -1,6 +1,6 @@
 from fastapi import FastAPI, Depends, HTTPException,status
 from sqlalchemy.orm import Session
-from routers import products, movements,warehouses,users
+from routers import products, movements,warehouses,users,warehousesproducts,invoices
 
 
 # Crear la aplicación FastAPI
@@ -11,6 +11,10 @@ app.include_router(users.router)
 app.include_router(products.router)
 app.include_router(movements.router)
 app.include_router(warehouses.router)
+app.include_router(warehousesproducts.router)
+app.include_router(invoices.router)
+
+
 
 
 

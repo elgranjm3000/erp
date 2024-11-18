@@ -14,6 +14,18 @@ router = APIRouter()
 def read_products(skip: int = 0, limit: int = 100, db: Session = Depends(database.get_db), token: str = Depends(verify_token)):
     return crud.get_products(db=db, skip=skip, limit=limit)
 
+@router.post("/products/{product_id}", response_model=schemas.Product)
+def read_product(product_id: int, db: Session = Depends(database.get_db)):
+    return crud.get_product_by_id(db=db, product_id=product_id)
+
+@router.delete("/products/{product_id}")
+def delete_product(product_id: int, db: Session = Depends(database.get_db)):
+    return crud.delete_product(db=db, product_id=product_id)
+
+@router.put("/products/{product_id}", response_model=schemas.Product)
+def update_product(product_id: int, product_data: schemas.ProductUpdate, db: Session = Depends(database.get_db)):
+    return crud.update_product(db=db, product_id=product_id, product_data=product_data)
+
 @router.post("/products", response_model=schemas.Product)
 def create_product(product: schemas.ProductCreate, db: Session = Depends(database.get_db)):    
     return crud.create_product(db=db, product=product)
