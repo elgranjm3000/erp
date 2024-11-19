@@ -2,3 +2,4 @@ sqlalchemy
 pydantic
 mysql-connector-python  # o pymysql si prefieres
 python-jose[cryptography] passlib[bcrypt]
+alembic

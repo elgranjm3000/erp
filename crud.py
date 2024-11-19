@@ -3,6 +3,7 @@ import models
 import schemas
 from passlib.context import CryptContext
 from fastapi import HTTPException
+from datetime import datetime
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
@@ -73,6 +74,7 @@ def create_invoice(db: Session, invoice_data: schemas.Invoice):
         total_amount=0,  # Se calculará basado en los items
         status=invoice_data.status,
         warehouse_id=invoice_data.warehouse_id,
+        discount=invoice_data.discount
     )
     db.add(invoice)
     db.commit()
@@ -130,7 +132,9 @@ def create_invoice(db: Session, invoice_data: schemas.Invoice):
     db.commit()
 
     # Calcular el total de la factura
-    invoice.total_amount = sum(item.total_price for item in invoice.invoice_items)
+    subtotal = sum(item.total_price for item in invoice_items)
+    discount_amount = subtotal * (invoice_data.discount / 100)  # Descuento en porcentaje
+    invoice.total_amount =  subtotal - discount_amount
     db.commit()
 
     # Crear la respuesta para el cliente
@@ -140,6 +144,7 @@ def create_invoice(db: Session, invoice_data: schemas.Invoice):
         date=invoice.date,
         status=invoice.status,
         warehouse_id=invoice.warehouse_id,
+        discount=invoice.discount,
         items=[schemas.InvoiceItem(
             product_id=item.product_id,
             quantity=item.quantity,
@@ -162,6 +167,7 @@ def view_invoice(db: Session, invoice_id: int):
         date=invoice.date,
         status=invoice.status,
         warehouse_id=invoice.warehouse_id,
+        discount=invoice.discount,
         items=[
             schemas.InvoiceItem(
                 product_id=item.product_id,
@@ -185,6 +191,8 @@ def edit_invoice(db: Session, invoice_id: int, invoice_data: schemas.Invoice):
     invoice.date = invoice_data.date
     invoice.status = invoice_data.status
     invoice.warehouse_id = invoice_data.warehouse_id
+    invoice.discount = invoice_data.discount
+    
 
     # Obtener los ítems originales para revertir stock si es necesario
     original_items = invoice.invoice_items
@@ -240,8 +248,10 @@ def edit_invoice(db: Session, invoice_id: int, invoice_data: schemas.Invoice):
         db.add(invoice_item)
         new_items.append(invoice_item)
 
-    # Actualizar el monto total de la factura
-    invoice.total_amount = sum(item.total_price for item in new_items)
+    # Actualizar el monto total de la factura    
+    subtotal = sum(item.total_price for item in new_items)
+    discount_amount = subtotal * (invoice_data.discount / 100)  # Descuento en porcentaje
+    invoice.total_amount =  subtotal - discount_amount
     db.commit()
 
     # Retornar la factura actualizada
@@ -263,6 +273,33 @@ def edit_invoice(db: Session, invoice_id: int, invoice_data: schemas.Invoice):
     return invoice_response
 
 
+def delete_invoice(db: Session, invoice_id: int):
+    # Buscar la factura existente
+    invoice = db.query(models.Invoice).filter(models.Invoice.id == invoice_id).first()
+    if not invoice:
+        raise HTTPException(status_code=404, detail="Invoice not found")
+    
+    # Revertir cambios en el inventario si es una "factura"
+    if invoice.status == "factura":
+        for item in invoice.invoice_items:
+            warehouse_product = db.query(models.WarehouseProduct).filter(
+                models.WarehouseProduct.product_id == item.product_id,
+                models.WarehouseProduct.warehouse_id == invoice.warehouse_id
+            ).first()
+            if warehouse_product:
+                warehouse_product.stock += item.quantity
+                db.query(models.Product).filter(
+                    models.Product.id == item.product_id
+                ).update({"quantity": models.Product.quantity + item.quantity})
+    
+    # Eliminar los ítems de la factura
+    db.query(models.InvoiceItem).filter(models.InvoiceItem.invoice_id == invoice_id).delete()
+    
+    # Eliminar la factura
+    db.delete(invoice)
+    db.commit()
+    
+    return {"message": "Invoice deleted successfully"}
 
 
 def create_credit_movement(db: Session, invoice_id: int, amount: float, movement_type: str):
@@ -414,6 +451,94 @@ def create_warehouse(db: Session, warehouse: schemas.WarehouseCreate):
     db.commit()
     db.refresh(db_warehouse)
     return db_warehouse
+
+
+
+
+# Crear una compra
+def create_purchase(db: Session, purchase_data: schemas.Purchase):
+    # Crear la compra
+    purchase = models.Purchase(
+        supplier_id=purchase_data.supplier_id,
+        date=purchase_data.date,
+        total_amount=0,  # Se calculará basado en los ítems
+        warehouse_id=purchase_data.warehouse_id
+    )
+    db.add(purchase)
+    db.commit()
+    db.refresh(purchase)
+
+    purchase_items = []  # Lista para almacenar los ítems de la compra
+    for item in purchase_data.items:
+        # Verificar si el producto existe
+        product = db.query(models.Product).filter(models.Product.id == item.product_id).first()
+        if not product:
+            raise HTTPException(status_code=404, detail="Product not found")
+        
+        # Buscar o crear el producto en el almacén específico
+        warehouse_product = db.query(models.WarehouseProduct).filter(
+            models.WarehouseProduct.product_id == item.product_id,
+            models.WarehouseProduct.warehouse_id == purchase_data.warehouse_id
+        ).first()
+
+        if warehouse_product:
+            # Actualizar el stock del producto en el almacén
+            warehouse_product.stock += item.quantity
+        else:
+            # Crear un nuevo registro si no existe en el almacén
+            warehouse_product = models.WarehouseProduct(
+                product_id=item.product_id,
+                warehouse_id=purchase_data.warehouse_id,
+                stock=item.quantity
+            )
+            db.add(warehouse_product)
+
+        # Actualizar la cantidad total del producto
+        product.quantity += item.quantity
+
+        # Crear el ítem de la compra
+        purchase_item = models.PurchaseItem(
+            purchase_id=purchase.id,
+            product_id=product.id,
+            quantity=item.quantity,
+            price_per_unit=product.price,
+            total_price=product.price * item.quantity
+        )
+        db.add(purchase_item)
+        purchase_items.append(purchase_item)  # Guardar los ítems creados
+
+        # Registrar el movimiento de inventario
+        movement = models.InventoryMovement(
+            product_id=product.id,
+            quantity=item.quantity,
+            movement_type="entrada",  # Entrada de inventario            
+        )
+        db.add(movement)
+
+    # Commit de las operaciones de los ítems y el movimiento de inventario
+    db.commit()
+
+    # Calcular el total de la compra
+    total_amount = sum(item.total_price for item in purchase_items)
+    purchase.total_amount = total_amount
+    db.commit()
+
+    # Crear la respuesta para el cliente
+    purchase_response = schemas.Purchase(
+        supplier_id=purchase.supplier_id,
+        total_amount=purchase.total_amount,
+        date=purchase.date,
+        warehouse_id=purchase.warehouse_id,
+        items=[schemas.PurchaseItem(
+            product_id=item.product_id,
+            quantity=item.quantity,
+            price_per_unit=item.price_per_unit,
+            total_price=item.total_price
+        ) for item in purchase_items]
+    )
+    return purchase_response
+
+
 
 # Hashear la contraseña
 def hash_password(password: str) -> str:

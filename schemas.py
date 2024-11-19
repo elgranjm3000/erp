@@ -74,7 +74,7 @@ class Category(CategoryBase):
 # Esquema para el movimiento de inventario
 class InventoryMovementBase(BaseModel):
     product_id: int
-    invoice_id: int
+    invoice_id: Optional[int]
     movement_type: str
     quantity: int
 
@@ -137,8 +137,52 @@ class Invoice(BaseModel):
     status: str  # 'presupuesto', 'factura', etc.
     date: datetime
     total_amount: float
+    discount: Optional[float] = 0.0  # Nuevo campo de descuento
     items: List[InvoiceItem]   
 
+
+    class Config:
+        from_attributes = True
+
+class PurchaseItemBase(BaseModel):
+    quantity: int
+    price_per_unit: float
+
+class PurchaseItemCreate(PurchaseItemBase):
+    pass
+
+class PurchaseItem(PurchaseItemBase):
+    product_id: int
+    class Config:
+        from_attributes = True
+
+class PurchaseBase(BaseModel):
+    supplier_id: int
+    warehouse_id: int
+    date: datetime
+    status: Optional[str] = "pending"
+
+class PurchaseCreate(PurchaseBase):
+    items: List[PurchaseItemCreate]
+
+class Purchase(PurchaseBase):
+
+    supplier_id:int 
+    warehouse_id:int                                
+    date: datetime
+    total_amount: float
+    items: List[PurchaseItem]
+
+    class Config:
+        from_attributes = True
+
+class PurchaseResponse(BaseModel):
+    id: int
+    supplier_id: int
+    warehouse_id: int
+    date: datetime
+    status: Optional[str] = "pending"
+    total_amount: float
 
     class Config:
         from_attributes = True

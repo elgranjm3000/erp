@@ -13,10 +13,10 @@ class Customer(Base):
     __tablename__ = 'customers'
 
     id = Column(Integer, primary_key=True, index=True)
-    name = Column(String, index=True)
-    email = Column(String, unique=True, index=True)
-    phone = Column(String)
-    address = Column(String)
+    name = Column(String(60), index=True)
+    email = Column(String(60), unique=True, index=True)
+    phone = Column(String(11))
+    address = Column(String(200))
 
     invoices = relationship("Invoice", back_populates="customer")
 
@@ -28,8 +28,9 @@ class Invoice(Base):
     customer_id = Column(Integer, ForeignKey('customers.id'))
     date = Column(DateTime, default=func.now())
     total_amount = Column(Float)
-    status = Column(String)  # 'presupuesto', 'factura', 'nota_credito', 'devolucion'
+    status = Column(String(60))  # 'presupuesto', 'factura', 'nota_credito', 'devolucion'
     warehouse_id = Column(Integer)
+    discount = Column(Float, default=0.0)  # Nuevo campo para el descuento
 
 
     customer = relationship("Customer", back_populates="invoices")
@@ -56,7 +57,7 @@ class CreditMovement(Base):
     id = Column(Integer, primary_key=True, index=True)
     invoice_id = Column(Integer, ForeignKey('invoices.id'))
     amount = Column(Float)
-    movement_type = Column(String)  # 'nota_credito' o 'devolucion'
+    movement_type = Column(String(60))  # 'nota_credito' o 'devolucion'
     date = Column(DateTime, default=func.now())
 
     invoice = relationship("Invoice")
@@ -66,8 +67,8 @@ class Category(Base):
     __tablename__ = 'categories'
 
     id = Column(Integer, primary_key=True, index=True)
-    name = Column(String, index=True)
-    description = Column(String)
+    name = Column(String(60), index=True)
+    description = Column(String(200))
 
     products = relationship("Product", back_populates="category")
 
@@ -76,8 +77,8 @@ class Product(Base):
     __tablename__ = 'products'
 
     id = Column(Integer, primary_key=True, index=True)
-    name = Column(String, index=True)
-    description = Column(String)
+    name = Column(String(60), index=True)
+    description = Column(String(200))
     price = Column(Integer)
     quantity = Column(Integer, default=0)
     category_id = Column(Integer, ForeignKey('categories.id'))
@@ -86,18 +87,22 @@ class Product(Base):
     inventory_movements = relationship("InventoryMovement", back_populates="product")
     
     # Relación con Warehouse a través de la tabla intermedia 'warehouse_products'
-    warehouses = relationship("Warehouse", secondary="warehouse_products", back_populates="products")
+    warehouses = relationship("Warehouse", secondary="warehouse_products", back_populates="products")    
+    purchase_items = relationship("PurchaseItem", back_populates="product")
+
 
 # Almacén
 class Warehouse(Base):
     __tablename__ = 'warehouses'
 
     id = Column(Integer, primary_key=True, index=True)
-    name = Column(String, index=True)
-    location = Column(String)
+    name = Column(String(60), index=True)
+    location = Column(String(200))
 
     # Relación con Product a través de la tabla intermedia 'warehouse_products'
     products = relationship("Product", secondary="warehouse_products", back_populates="warehouses")
+    purchases = relationship('Purchase', back_populates='warehouse')
+
 
 # Relación entre Almacenes y Productos (Stock por Almacén)
 class WarehouseProduct(Base):
@@ -114,18 +119,62 @@ class InventoryMovement(Base):
     id = Column(Integer, primary_key=True, index=True)
     product_id = Column(Integer, ForeignKey('products.id'))
     invoice_id = Column(Integer)
-    movement_type = Column(String)  # Puede ser 'entrada', 'salida'
+    movement_type = Column(String(60))  # Puede ser 'entrada', 'salida'
     quantity = Column(Integer)
     timestamp = Column(DateTime, default=func.now())
 
     product = relationship("Product", back_populates="inventory_movements")
 
+class Supplier(Base):
+    __tablename__ = "suppliers"
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(60), nullable=False)
+    contact = Column(String(30), nullable=True)
+    address = Column(String(200), nullable=True)
+
+    # Relación con compras
+    purchases = relationship("Purchase", back_populates="supplier")
+    
+
+
+class Purchase(Base):
+    __tablename__ = "purchases"
+
+    id = Column(Integer, primary_key=True, index=True)
+    supplier_id = Column(Integer, ForeignKey("suppliers.id"), nullable=False)  # Proveedor relacionado
+    warehouse_id = Column(Integer, ForeignKey("warehouses.id"), nullable=False)  # Almacén relacionado
+    date = Column(DateTime, default=func.now())  # Fecha de compra
+    total_amount = Column(Float, default=0.0)  # Monto total de la compra
+    status = Column(String(60), default="pending")  # Estado de la compra
+    
+        # Relación con Supplier y Warehouse
+    supplier = relationship("Supplier", back_populates="purchases")
+    warehouse = relationship("Warehouse", back_populates="purchases")
+
+    # Relación con la tabla intermedia 'purchase_items'
+    purchase_items = relationship("PurchaseItem", back_populates="purchase", cascade="all, delete")
+
+class PurchaseItem(Base):
+    __tablename__ = "purchase_items"
+
+    id = Column(Integer, primary_key=True, index=True)
+    purchase_id = Column(Integer, ForeignKey("purchases.id"), nullable=False)  # Relación con la compra
+    product_id = Column(Integer, ForeignKey("products.id"), nullable=False)  # Producto relacionado
+    quantity = Column(Integer, nullable=False)  # Cantidad comprada
+    price_per_unit = Column(Float, nullable=False)  # Precio por unidad
+    total_price = Column(Float, nullable=False)  # Precio total del producto
+    
+    
+
+    purchase = relationship("Purchase", back_populates="purchase_items")
+    product = relationship("Product", back_populates="purchase_items")
+
 class User(Base):
     __tablename__ = 'users'
 
     id = Column(Integer, primary_key=True, index=True)
-    username = Column(String)  
-    hashed_password = Column(String)  
+    username = Column(String(60))  
+    hashed_password = Column(String(255))  
     disabled = False
 
 

@@ -29,6 +29,11 @@ def view_invoice_endpoint(invoice_id: int, db: Session = Depends(database.get_db
 def edit_invoice_endpoint(invoice_id: int, invoice_data: schemas.Invoice, db: Session = Depends(database.get_db)):
     return crud.edit_invoice(db, invoice_id, invoice_data)
 
+
+@router.delete("/invoices/{invoice_id}", response_model=dict)
+def delete_invoice_endpoint(invoice_id: int, db: Session = Depends(database.get_db)):
+    return crud.delete_invoice(db, invoice_id)
+
 """04c528cbf12f622c5f1fc046b3d15cee"""
 
 """https://api.currencylayer.com/convert?access_key=04c528cbf12f622c5f1fc046b3d15cee&from=USD&to=VES&amount=30"""
