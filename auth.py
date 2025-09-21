@@ -46,16 +46,16 @@ def verify_token(token: str = Depends(oauth2_scheme), db: Session = Depends(data
 
         # Obtener información del token
         username: str = payload.get("sub")
-        company_id: int = payload.get("company_id")  # ⭐ AHORA SÍ SE USA
+        company_id: int = payload.get("company_id")
 
-        if username is None or company_id is None:  # ⭐ VALIDAR AMBOS
+        if username is None or company_id is None:
             raise credentials_exception
 
         # ⭐ BUSCAR USUARIO CON EMPRESA ESPECÍFICA
         user = db.query(User).filter(
             User.username == username,
-            User.company_id == company_id,  # ⭐ FILTRAR POR EMPRESA
-            User.is_active == True  # ⭐ SOLO USUARIOS ACTIVOS
+            User.company_id == company_id,
+            User.is_active == True
         ).first()
         
         if user is None:
@@ -63,11 +63,10 @@ def verify_token(token: str = Depends(oauth2_scheme), db: Session = Depends(data
 
         return user
 
-    except JWTError:  # ⭐ CORREGIDO: JWTError en lugar de jwt.PyJWTError
+    except JWTError:
         raise credentials_exception
 
-# ⭐ NUEVAS FUNCIONES MULTIEMPRESA
-
+# ⭐ FUNCIÓN CORREGIDA - ACEPTA PARÁMETROS OPCIONALES
 def check_permission(required_role: str = None, require_company_admin: bool = False):
     """Dependency para verificar permisos específicos"""
     def permission_checker(current_user: User = Depends(verify_token)):
@@ -149,16 +148,17 @@ def create_user_with_company(
         )
     
     # Verificar email único en la empresa
-    existing_email = db.query(User).filter(
-        User.email == email,
-        User.company_id == company_id
-    ).first()
-    
-    if existing_email:
-        raise HTTPException(
-            status_code=400,
-            detail="Email already exists in this company"
-        )
+    if email:
+        existing_email = db.query(User).filter(
+            User.email == email,
+            User.company_id == company_id
+        ).first()
+        
+        if existing_email:
+            raise HTTPException(
+                status_code=400,
+                detail="Email already exists in this company"
+            )
     
     # Verificar que exista la empresa
     company = db.query(Company).filter(Company.id == company_id).first()

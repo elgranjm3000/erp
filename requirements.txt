@@ -1,11 +1,10 @@
 fastapi
-uvicorn[standard]
+uvicorn
 sqlalchemy
-pydantic
 mysql-connector-python
 python-jose[cryptography]
-passlib[bcrypt]
+passlib[bcrypt]==1.7.4
+bcrypt==4.0.1
 alembic
-bcrypt
-cryptography
+pydantic
 email-validator

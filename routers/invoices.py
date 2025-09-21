@@ -1,47 +1,159 @@
-from fastapi import APIRouter, Depends,HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 import crud
 import schemas
 import database
-from models import Warehouse,InventoryMovement,WarehouseProduct
-
-from schemas import InventoryMovement  as InventoryMovementSchema  #   # Esquema para los movimientos de inventario
+from models import User
 from typing import List
-
-
+from auth import verify_token, check_permission
 
 router = APIRouter()
 
+# ================= FACTURAS CON FILTRO POR EMPRESA =================
+
 @router.post("/invoices/", response_model=schemas.Invoice)
-def create_invoice_endpoint(invoice_data: schemas.Invoice, db: Session = Depends(database.get_db)):
+def create_invoice_endpoint(
+    invoice_data: schemas.InvoiceCreate, 
+    current_user: User = Depends(check_permission(required_role="user")),
+    db: Session = Depends(database.get_db)
+):
+    """Crear factura en mi empresa"""
     try:
-        # Llamada a la función del CRUD para crear la factura
-        invoice = crud.create_invoice(db, invoice_data)
+        invoice = crud.create_invoice_for_company(
+            db=db, 
+            invoice_data=invoice_data, 
+            company_id=current_user.company_id
+        )
         return invoice
     except HTTPException as e:
-        raise e  # Lanza el error si ocurre alguna excepción (como "Producto no encontrado", "Stock insuficiente", etc.)
+        raise e
+
+@router.get("/invoices/", response_model=List[schemas.Invoice])
+def list_invoices(
+    skip: int = 0,
+    limit: int = 100,
+    status: str = None,
+    current_user: User = Depends(verify_token),
+    db: Session = Depends(database.get_db)
+):
+    """Listar facturas de mi empresa"""
+    return crud.get_invoices_by_company(
+        db=db,
+        company_id=current_user.company_id,
+        skip=skip,
+        limit=limit,
+        status=status
+    )
 
 @router.get("/invoices/{invoice_id}", response_model=schemas.Invoice)
-def view_invoice_endpoint(invoice_id: int, db: Session = Depends(database.get_db)):
-    return crud.view_invoice(db, invoice_id)
+def view_invoice_endpoint(
+    invoice_id: int, 
+    current_user: User = Depends(verify_token),
+    db: Session = Depends(database.get_db)
+):
+    """Ver factura específica de mi empresa"""
+    return crud.view_invoice_by_company(
+        db=db, 
+        invoice_id=invoice_id, 
+        company_id=current_user.company_id
+    )
 
-@router.put("/invoice/{invoice_id}", response_model=schemas.Invoice)
-def edit_invoice_endpoint(invoice_id: int, invoice_data: schemas.Invoice, db: Session = Depends(database.get_db)):
-    return crud.edit_invoice(db, invoice_id, invoice_data)
+@router.put("/invoices/{invoice_id}", response_model=schemas.Invoice)
+def edit_invoice_endpoint(
+    invoice_id: int, 
+    invoice_data: schemas.InvoiceUpdate, 
+    current_user: User = Depends(check_permission(required_role="user")),
+    db: Session = Depends(database.get_db)
+):
+    """Editar factura de mi empresa"""
+    return crud.edit_invoice_for_company(
+        db=db, 
+        invoice_id=invoice_id, 
+        invoice_data=invoice_data,
+        company_id=current_user.company_id
+    )
 
+@router.delete("/invoices/{invoice_id}")
+def delete_invoice_endpoint(
+    invoice_id: int, 
+    current_user: User = Depends(check_permission(required_role="manager")),
+    db: Session = Depends(database.get_db)
+):
+    """Eliminar factura de mi empresa"""
+    return crud.delete_invoice_for_company(
+        db=db, 
+        invoice_id=invoice_id,
+        company_id=current_user.company_id
+    )
 
-@router.delete("/invoices/{invoice_id}", response_model=dict)
-def delete_invoice_endpoint(invoice_id: int, db: Session = Depends(database.get_db)):
-    return crud.delete_invoice(db, invoice_id)
+# ================= PRESUPUESTOS =================
 
-"""04c528cbf12f622c5f1fc046b3d15cee"""
-
-"""https://api.currencylayer.com/convert?access_key=04c528cbf12f622c5f1fc046b3d15cee&from=USD&to=VES&amount=30"""
-
-"""@router.post("/budgets/", response_model=schemas.Invoice)
-def create_budget_endpoint(budget_data: schemas.InvoiceCreate, db: Session = Depends(database.get_db)):
-    return crud.create_budget(db=db, budget_data=budget_data)
+@router.post("/budgets/", response_model=schemas.Invoice)
+def create_budget_endpoint(
+    budget_data: schemas.InvoiceCreate, 
+    current_user: User = Depends(check_permission(required_role="user")),
+    db: Session = Depends(database.get_db)
+):
+    """Crear presupuesto en mi empresa"""
+    # Forzar status a presupuesto
+    budget_data.status = "presupuesto"
+    return crud.create_invoice_for_company(
+        db=db, 
+        invoice_data=budget_data, 
+        company_id=current_user.company_id
+    )
 
 @router.put("/budgets/{budget_id}/confirm", response_model=schemas.Invoice)
-def confirm_budget_endpoint(budget_id: int, db: Session = Depends(database.get_db)):
-    return crud.confirm_budget(db=db, budget_id=budget_id)"""
+def confirm_budget_endpoint(
+    budget_id: int, 
+    current_user: User = Depends(check_permission(required_role="user")),
+    db: Session = Depends(database.get_db)
+):
+    """Confirmar presupuesto como factura"""
+    return crud.confirm_budget_for_company(
+        db=db, 
+        budget_id=budget_id,
+        company_id=current_user.company_id
+    )
+
+# ================= MOVIMIENTOS DE CRÉDITO =================
+
+@router.post("/invoices/{invoice_id}/credit-movements", response_model=schemas.CreditMovement)
+def create_credit_movement(
+    invoice_id: int,
+    movement_data: schemas.CreditMovementCreate,
+    current_user: User = Depends(check_permission(required_role="manager")),
+    db: Session = Depends(database.get_db)
+):
+    """Crear movimiento de crédito (nota de crédito/devolución)"""
+    return crud.create_credit_movement_for_company(
+        db=db,
+        invoice_id=invoice_id,
+        movement_data=movement_data,
+        company_id=current_user.company_id
+    )
+
+# ================= ESTADÍSTICAS Y REPORTES =================
+
+@router.get("/invoices/stats/summary")
+def get_invoices_summary(
+    current_user: User = Depends(verify_token),
+    db: Session = Depends(database.get_db)
+):
+    """Resumen estadístico de facturas de mi empresa"""
+    return crud.get_invoices_stats_by_company(
+        db=db,
+        company_id=current_user.company_id
+    )
+
+@router.get("/invoices/pending", response_model=List[schemas.Invoice])
+def get_pending_invoices(
+    current_user: User = Depends(verify_token),
+    db: Session = Depends(database.get_db)
+):
+    """Obtener facturas pendientes de mi empresa"""
+    return crud.get_invoices_by_company(
+        db=db,
+        company_id=current_user.company_id,
+        status="presupuesto"
+    )

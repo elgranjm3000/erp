@@ -1,51 +1,95 @@
-from fastapi import FastAPI, Depends, HTTPException,status
-from sqlalchemy.orm import Session
-from routers import products, movements,warehouses,users,warehousesproducts,invoices, purchases
+from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from datetime import datetime
+import logging
+from sqlalchemy import text
+from fastapi.responses import JSONResponse  # ⭐ IMPORTANTE
 
+
+# Importar solo los routers que existen
+from routers import products, movements, warehouses, users, warehousesproducts, invoices, purchases
+
+# Importar dependencias
+import database
 
 # Crear la aplicación FastAPI
-app = FastAPI()
+app = FastAPI(
+    title="Sistema ERP Multiempresa",
+    description="Sistema de planificación de recursos empresariales con soporte multiempresa",
+    version="2.0.0",
+    docs_url="/docs",
+    redoc_url="/redoc"
+)
 
+# Configurar CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
-app.include_router(users.router)
-app.include_router(products.router)
-app.include_router(movements.router)
-app.include_router(warehouses.router)
-app.include_router(warehousesproducts.router)
-app.include_router(invoices.router)
-app.include_router(purchases.router)
+# ================= INCLUIR ROUTERS BÁSICOS =================
 
+app.include_router(users.router, prefix="/api/v1", tags=["👥 Usuarios"])
+app.include_router(products.router, prefix="/api/v1", tags=["📦 Productos"])
+app.include_router(invoices.router, prefix="/api/v1", tags=["📄 Facturas"])
+app.include_router(purchases.router, prefix="/api/v1", tags=["🛒 Compras"])
+app.include_router(movements.router, prefix="/api/v1", tags=["🔄 Movimientos"])
+app.include_router(warehouses.router, prefix="/api/v1", tags=["🏭 Almacenes"])
+app.include_router(warehousesproducts.router, prefix="/api/v1", tags=["📦 Stock"])
 
+# ================= ENDPOINTS RAÍZ =================
 
+@app.get("/")
+def read_root():
+    return {
+        "message": "Sistema ERP Multiempresa",
+        "version": "2.0.0",
+        "status": "running",
+        "docs": "/docs"
+    }
 
-# Crear las tablas en la base de datos
-"""models.Base.metadata.create_all(bind=database.engine)
+@app.get("/health")
+def health_check():
+    try:
+        db = database.SessionLocal()
+        db.execute("SELECT 1")
+        db.close()
+        return {"status": "healthy", "database": "connected"}
+    except Exception as e:
+        return {"status": "unhealthy", "database": "disconnected", "error": str(e)}
 
-# Ruta para obtener productos
-@app.get("/products/", response_model=list[schemas.Product])
-def read_products(skip: int = 0, limit: int = 10, db: Session = Depends(database.get_db)):
-    products = crud.get_products(db, skip=skip, limit=limit)
-    return products
+# ================= MANEJO DE ERRORES =================
 
-# Ruta para obtener un producto específico
-@app.get("/products/{product_id}", response_model=schemas.Product)
-def read_product(product_id: int, db: Session = Depends(database.get_db)):
-    db_product = crud.get_product(db, product_id=product_id)
-    if db_product is None:
-        raise HTTPException(status_code=404, detail="Product not found")
-    return db_product
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request, exc):
+    return JSONResponse(  # ⭐ Debe usar JSONResponse, no dict
+        status_code=exc.status_code,
+        content={
+            "error": True,
+            "message": exc.detail,
+            "status_code": exc.status_code,
+            "timestamp": datetime.utcnow().isoformat()
+        }
+    )
 
-# Ruta para crear un producto
-@app.post("/products/", response_model=schemas.Product)
-def create_product(product: schemas.ProductCreate, db: Session = Depends(database.get_db)):
-    return crud.create_product(db=db, product=product)
-"""
+# ================= STARTUP =================
 
+@app.on_event("startup")
+async def startup_event():
+    try:
+        db = database.SessionLocal()
+        db.execute(text("SELECT 1"))
+        db.close()
+        print("✅ Conexión a la base de datos exitosa")
+        print("🚀 Sistema ERP iniciado correctamente")
+        print("📚 Documentación: http://localhost:8000/docs")
+    except Exception as e:
+        print(f"❌ Error de conexión: {e}")
+        raise
 
-"""
-
-Product.quantity	Total del producto en todos los almacenes	Ver el total disponible en inventario
-WarehouseProduct.stock	Cantidad del producto en un almacén específico	Distribución del inventario por almacén
-InventoryMovement.quantity	Cantidad de unidades movidas en una transacción	Registro de entrada/salida del inventario
-
-"""
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
