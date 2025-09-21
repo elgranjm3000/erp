@@ -4,13 +4,163 @@ from datetime import timedelta
 import schemas
 import crud
 import database
-from models import User
-from auth import verify_token, check_permission, authenticate_user, create_access_token
+from models import User, Company
+from auth import verify_token, check_permission, authenticate_user, create_access_token, hash_password
 from config import ACCESS_TOKEN_EXPIRE_MINUTES
 
 router = APIRouter()
 
 # ================= AUTENTICACIÓN MULTIEMPRESA =================
+
+# ================= REGISTRO PÚBLICO DE COMPAÑÍA =================
+
+@router.post("/auth/register-company")
+def register_company_public(
+    registration_data: schemas.CompanyRegistrationRequest,
+    db: Session = Depends(database.get_db)
+):
+    """
+    Registro público de compañía con usuario administrador
+    No requiere autenticación previa - Respuesta simplificada
+    """
+    try:
+        # 1. Verificar que el tax_id no exista
+        existing_company = db.query(Company).filter(
+            Company.tax_id == registration_data.company_tax_id.upper()
+        ).first()
+        
+        if existing_company:
+            raise HTTPException(
+                status_code=400,
+                detail="Company with this tax ID already exists"
+            )
+        
+        # 2. Verificar que el username no exista globalmente
+        existing_user = db.query(User).filter(
+            User.username == registration_data.admin_username
+        ).first()
+        
+        if existing_user:
+            raise HTTPException(
+                status_code=400,
+                detail="Username already exists. Please choose a different one."
+            )
+        
+        # 3. Crear la compañía con valores por defecto
+        new_company = Company(
+            name=registration_data.company_name,
+            legal_name=registration_data.company_name,
+            tax_id=registration_data.company_tax_id.upper(),
+            address=registration_data.company_address,
+            phone=registration_data.company_phone,
+            email=registration_data.company_email,
+            currency="USD",
+            timezone="UTC",
+            date_format="YYYY-MM-DD",
+            invoice_prefix="INV",
+            next_invoice_number=1,
+            logo_url=None,
+            is_active=True
+        )
+        
+        db.add(new_company)
+        db.flush()
+        
+        # 4. Crear el usuario administrador
+        hashed_password = hash_password(registration_data.admin_password)
+        
+        admin_user = User(
+            username=registration_data.admin_username,
+            email=registration_data.admin_email,
+            hashed_password=hashed_password,
+            company_id=new_company.id,
+            role="admin",
+            is_company_admin=True,
+            is_active=True
+        )
+        
+        db.add(admin_user)
+        db.commit()
+        db.refresh(new_company)
+        db.refresh(admin_user)
+        
+        # 5. Generar token de acceso automático
+        access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+        access_token = create_access_token(
+            data={
+                "sub": admin_user.username,
+                "company_id": admin_user.company_id,
+                "role": admin_user.role,
+                "is_company_admin": admin_user.is_company_admin
+            },
+            expires_delta=access_token_expires
+        )
+        
+        # 6. Respuesta simple sin esquemas complejos
+        return {
+            "success": True,
+            "message": "Company and admin user created successfully",
+            "access_token": access_token,
+            "token_type": "bearer",
+            "company": {
+                "id": new_company.id,
+                "name": new_company.name,
+                "tax_id": new_company.tax_id,
+                "address": new_company.address
+            },
+            "user": {
+                "id": admin_user.id,
+                "username": admin_user.username,
+                "email": admin_user.email,
+                "role": admin_user.role,
+                "is_company_admin": admin_user.is_company_admin
+            }
+        }
+        
+    except HTTPException:
+        db.rollback()
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error creating company: {str(e)}"
+        )
+# ================= VERIFICAR DISPONIBILIDAD =================
+
+@router.get("/auth/check-company-tax-id/{tax_id}")
+def check_company_tax_id_availability(
+    tax_id: str,
+    db: Session = Depends(database.get_db)
+):
+    """Verificar si un tax_id de compañía está disponible"""
+    existing = db.query(Company).filter(
+        Company.tax_id == tax_id.upper()
+    ).first()
+    
+    return {
+        "tax_id": tax_id.upper(),
+        "available": existing is None,
+        "message": "Tax ID is available" if existing is None else "Tax ID already exists"
+    }
+
+@router.get("/auth/check-username/{username}")
+def check_username_availability(
+    username: str,
+    db: Session = Depends(database.get_db)
+):
+    """Verificar si un username está disponible"""
+    existing = db.query(User).filter(
+        User.username == username
+    ).first()
+    
+    return {
+        "username": username,
+        "available": existing is None,
+        "message": "Username is available" if existing is None else "Username already exists"
+    }
+
+
 
 @router.post("/auth/login", response_model=schemas.LoginResponse)
 def login_multicompany(

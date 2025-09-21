@@ -48,7 +48,13 @@ def read_root():
         "message": "Sistema ERP Multiempresa",
         "version": "2.0.0",
         "status": "running",
-        "docs": "/docs"
+        "docs": "/docs",
+        "endpoints": {
+            "register_company": "/api/v1/auth/register-company",
+            "login": "/api/v1/auth/login",
+            "check_company": "/api/v1/auth/check-company-tax-id/{tax_id}",
+            "check_username": "/api/v1/auth/check-username/{username}"
+        }
     }
 
 @app.get("/health")

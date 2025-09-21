@@ -6,11 +6,64 @@ from datetime import datetime
 if TYPE_CHECKING:
     from .schemas import Product, Category
 
+
+class CompanyRegistrationRequest(BaseModel):
+    # Datos de la compañía
+    company_name: str
+    company_legal_name: Optional[str] = None  # Si no se proporciona, usar company_name
+    company_tax_id: str
+    company_address: str
+    company_phone: Optional[str] = None
+    company_email: Optional[EmailStr] = None
+    
+    currency: Optional[str] = "USD"
+    timezone: Optional[str] = "UTC"
+    date_format: Optional[str] = "YYYY-MM-DD"
+    invoice_prefix: Optional[str] = "INV"
+    
+    # Datos del usuario administrador
+    admin_username: str
+    admin_email: EmailStr
+    admin_password: str
+    
+    @validator('company_tax_id')
+    def validate_tax_id(cls, v):
+        if len(v) < 3:
+            raise ValueError('Tax ID must be at least 3 characters long')
+        return v.upper()
+    
+    @validator('admin_username')
+    def validate_username(cls, v):
+        if len(v) < 3:
+            raise ValueError('Username must be at least 3 characters long')
+        if not v.replace('_', '').replace('-', '').isalnum():
+            raise ValueError('Username can only contain letters, numbers, hyphens and underscores')
+        return v.lower()
+    
+    @validator('admin_password')
+    def validate_password(cls, v):
+        if len(v) < 6:
+            raise ValueError('Password must be at least 6 characters long')
+        return v
+    
+    @validator('company_name')
+    def validate_company_name(cls, v):
+        if len(v) < 2:
+            raise ValueError('Company name must be at least 2 characters long')
+        return v.strip()
+
+class CompanyRegistrationResponse(BaseModel):
+    message: str
+    company: 'Company'
+    admin_user: 'User'
+    access_token: str
+    token_type: str
+
 # ================= ESQUEMAS DE EMPRESA =================
 
 class CompanyBase(BaseModel):
     name: str
-    legal_name: str
+    legal_name: Optional[str] = None
     tax_id: str
     email: Optional[EmailStr] = None
     phone: Optional[str] = None
