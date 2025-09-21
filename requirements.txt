@@ -1,5 +1,11 @@
+fastapi
+uvicorn[standard]
 sqlalchemy
 pydantic
-mysql-connector-python  # o pymysql si prefieres
-python-jose[cryptography] passlib[bcrypt]
+mysql-connector-python
+python-jose[cryptography]
+passlib[bcrypt]
 alembic
+bcrypt
+cryptography
+email-validator

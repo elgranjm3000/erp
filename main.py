@@ -18,10 +18,6 @@ app.include_router(purchases.router)
 
 
 
-
-
-
-
 # Crear las tablas en la base de datos
 """models.Base.metadata.create_all(bind=database.engine)
 

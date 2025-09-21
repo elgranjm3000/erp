@@ -6,7 +6,7 @@ from contextlib import contextmanager
 import os
 
 # Configuración de la URL de conexión para MySQL
-DATABASE_URL = "mysql+mysqlconnector://root:root@172.200.2.10:3306/erp"
+DATABASE_URL = "mysql+mysqlconnector://root:tiger@localhost:3306/erp"
 
 
 engine = create_engine(DATABASE_URL)
