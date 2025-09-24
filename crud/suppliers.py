@@ -24,7 +24,6 @@ def get_suppliers_by_company(
     return paginate_query(
         db.query(models.Supplier).filter(
             models.Supplier.company_id == company_id,
-            models.Supplier.is_active == True
         ).order_by(models.Supplier.name),
         skip=skip,
         limit=limit
@@ -88,20 +87,13 @@ def create_supplier_for_company(
         # Crear proveedor
         db_supplier = models.Supplier(
             company_id=company_id,
-            supplier_code=supplier_code,
             name=supplier_data.name,
-            email=getattr(supplier_data, 'email', None),
-            phone=getattr(supplier_data, 'phone', None),
             address=getattr(supplier_data, 'address', None),
             tax_id=getattr(supplier_data, 'tax_id', '').upper() if getattr(supplier_data, 'tax_id', None) else None,
-            supplier_type=getattr(supplier_data, 'supplier_type', 'regular'),
-            payment_terms=getattr(supplier_data, 'payment_terms', 0),
-            credit_rating=getattr(supplier_data, 'credit_rating', 'A'),
-            contact_person=getattr(supplier_data, 'contact_person', None),
-            website=getattr(supplier_data, 'website', None),
-            notes=getattr(supplier_data, 'notes', None),
-            is_active=True
+            contact=getattr(supplier_data, 'contact', None),
         )
+        
+ 
         
         db.add(db_supplier)
         db.commit()

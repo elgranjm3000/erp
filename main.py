@@ -7,7 +7,7 @@ from fastapi.responses import JSONResponse  # ⭐ IMPORTANTE
 
 
 # Importar solo los routers que existen
-from routers import products, movements, warehouses, users, warehousesproducts, invoices, purchases
+from routers import products, movements, warehouses, users, warehousesproducts, invoices, purchases,customers,suppliers
 
 # Importar dependencias
 import database
@@ -34,6 +34,8 @@ app.add_middleware(
 
 app.include_router(users.router, prefix="/api/v1", tags=["👥 Usuarios"])
 app.include_router(products.router, prefix="/api/v1", tags=["📦 Productos"])
+app.include_router(suppliers.router, prefix="/api/v1", tags=["📦 Proveedores"])
+app.include_router(customers.router, prefix="/api/v1", tags=["👥 Clientes"])
 app.include_router(invoices.router, prefix="/api/v1", tags=["📄 Facturas"])
 app.include_router(purchases.router, prefix="/api/v1", tags=["🛒 Compras"])
 app.include_router(movements.router, prefix="/api/v1", tags=["🔄 Movimientos"])

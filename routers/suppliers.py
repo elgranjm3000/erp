@@ -41,14 +41,14 @@ def read_supplier(
 
 @router.post("/suppliers", response_model=schemas.Supplier)
 def create_supplier(
-    supplier: schemas.SupplierCreate, 
-    current_user: User = Depends(check_permission(role="user")),
+    supplier_data: schemas.SupplierCreate, 
+    current_user: User = Depends(check_permission(required_role="user")),
     db: Session = Depends(database.get_db)
 ):
     """Crear proveedor en mi empresa"""
     return crud.create_supplier_for_company(
         db=db, 
-        supplier=supplier, 
+        supplier_data=supplier_data, 
         company_id=current_user.company_id
     )
 
@@ -56,7 +56,7 @@ def create_supplier(
 def update_supplier(
     supplier_id: int, 
     supplier_data: schemas.SupplierUpdate, 
-    current_user: User = Depends(check_permission(role="user")),
+    current_user: User = Depends(check_permission(required_role="user")),
     db: Session = Depends(database.get_db)
 ):
     """Actualizar proveedor de mi empresa"""
@@ -70,7 +70,7 @@ def update_supplier(
 @router.delete("/suppliers/{supplier_id}")
 def delete_supplier(
     supplier_id: int, 
-    current_user: User = Depends(check_permission(role="manager")),
+    current_user: User = Depends(check_permission(required_role="manager")),
     db: Session = Depends(database.get_db)
 ):
     """Eliminar proveedor de mi empresa"""

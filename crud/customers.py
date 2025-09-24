@@ -24,7 +24,6 @@ def get_customers_by_company(
     return paginate_query(
         db.query(models.Customer).filter(
             models.Customer.company_id == company_id,
-            models.Customer.is_active == True
         ).order_by(models.Customer.name),
         skip=skip,
         limit=limit
@@ -88,17 +87,11 @@ def create_customer_for_company(
         # Crear cliente
         db_customer = models.Customer(
             company_id=company_id,
-            customer_code=customer_code,
             name=customer_data.name,
             email=getattr(customer_data, 'email', None),
             phone=getattr(customer_data, 'phone', None),
             address=getattr(customer_data, 'address', None),
             tax_id=getattr(customer_data, 'tax_id', '').upper() if getattr(customer_data, 'tax_id', None) else None,
-            customer_type=getattr(customer_data, 'customer_type', 'regular'),
-            credit_limit=getattr(customer_data, 'credit_limit', 0),
-            payment_terms=getattr(customer_data, 'payment_terms', 0),
-            notes=getattr(customer_data, 'notes', None),
-            is_active=True
         )
         
         db.add(db_customer)
