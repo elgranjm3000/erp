@@ -1,6 +1,7 @@
 from pydantic import BaseModel, EmailStr, validator
 from typing import List, Optional, TYPE_CHECKING
 from datetime import datetime
+from datetime import date
 
 # Import para evitar problemas de referencias circulares
 if TYPE_CHECKING:
@@ -345,6 +346,7 @@ class InvoiceItemCreate(BaseModel):
         return v
 
 class InvoiceItem(BaseModel):
+    id: int
     product_id: int
     quantity: int
     price_per_unit: float
@@ -356,15 +358,21 @@ class InvoiceItem(BaseModel):
 class InvoiceCreate(BaseModel):
     customer_id: int
     warehouse_id: int
-    status: str = "presupuesto"
+    status: str = "factura"
     discount: Optional[float] = 0.0
+    date: date
     items: List[InvoiceItemCreate]
-
+    notes: Optional[str] = None
+    payment_terms: Optional[str] = None
+    
     @validator('discount')
     def validate_discount(cls, v):
         if v < 0 or v > 100:
             raise ValueError('Discount must be between 0 and 100')
         return v
+
+    class Config:
+        from_attributes = True
 
 class InvoiceUpdate(BaseModel):
     customer_id: Optional[int] = None
@@ -372,6 +380,11 @@ class InvoiceUpdate(BaseModel):
     status: Optional[str] = None
     discount: Optional[float] = None
     items: Optional[List[InvoiceItemCreate]] = None
+    notes: Optional[str] = None
+    payment_terms: Optional[str] = None
+
+    class Config:
+        from_attributes = True
 
 class Invoice(BaseModel):
     id: int
@@ -379,11 +392,12 @@ class Invoice(BaseModel):
     customer_id: int
     warehouse_id: int
     invoice_number: str
-    date: datetime
+    date: date
     total_amount: float
     status: str
     discount: float
-    items: List[InvoiceItem]
+    notes: Optional[str] = None
+    items: List[InvoiceItem] = []  # ✅ CAMBIO: Agregar = []
 
     class Config:
         from_attributes = True

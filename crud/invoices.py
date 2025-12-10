@@ -11,6 +11,7 @@ from typing import List, Optional
 import models
 import schemas
 from .base import verify_company_ownership, paginate_query
+import traceback
 
 # ================= FUNCIONES LEGACY (MANTENER COMPATIBILIDAD) =================
 
@@ -197,7 +198,16 @@ def create_invoice_for_company(
         
     except Exception as e:
         db.rollback()
-        raise HTTPException(status_code=400, detail=f"Error creating invoice: {str(e)}")
+        raise HTTPException(
+        status_code=400,
+            detail={
+                "error": "Error creating invoice",
+                "message": str(e),                # mensaje legible
+                "type": type(e).__name__,         # tipo de excepción
+                "args": e.args,                   # argumentos originales
+                "traceback": traceback.format_exc()  # stack trace completo
+            }
+        )
 
 def view_invoice_by_company(db: Session, invoice_id: int, company_id: int):
     """Ver factura específica de empresa"""

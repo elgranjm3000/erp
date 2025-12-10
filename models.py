@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, Float, Boolean
+from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, Float, Boolean, Text
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from database import Base
@@ -70,9 +70,11 @@ class Invoice(Base):
     invoice_number = Column(String(20), index=True)  # ✅ AGREGADO
     
     date = Column(DateTime, default=func.now())
+    due_date = Column(DateTime, default=func.now())
     total_amount = Column(Float)
     status = Column(String(60))  # 'presupuesto', 'factura', 'nota_credito', 'devolucion'
     discount = Column(Float, default=0.0)
+    notes = Column(Text)  # ✅ AGREGADO: Notas adicionales
 
     # Relaciones
     customer = relationship("Customer", back_populates="invoices")
@@ -170,6 +172,7 @@ class InventoryMovement(Base):
     movement_type = Column(String(60))  # Puede ser 'entrada', 'salida'
     quantity = Column(Integer)
     timestamp = Column(DateTime, default=func.now())
+    description = Column(Text)
 
     product = relationship("Product", back_populates="inventory_movements")
 
