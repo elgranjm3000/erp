@@ -23,7 +23,8 @@ ALLOWED_ORIGINS = [
     "http://localhost",
     "http://127.0.0.1",
     "http://192.168.10.108:8000", # IP local de desarrollo    
-    "http://0.0.0.0:3000"
+    "http://0.0.0.0:3000",
+    "http://198.23.62.135:8000/"
     # Agregar tus dominios de producción aquí
     # "https://tudominio.com",
     # "https://www.tudominio.com",
