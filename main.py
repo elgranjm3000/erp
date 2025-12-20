@@ -16,6 +16,7 @@ import database
 # ================= VARIABLES DE ENTORNO =================
 
 ALLOWED_ORIGINS = [
+    "http://localhost:8000",
     "http://localhost:3000",      # Desarrollo local Next.js
     "http://127.0.0.1:3000",
     "http://localhost:8000",       # Si desde mismo servidor
@@ -24,7 +25,7 @@ ALLOWED_ORIGINS = [
     "http://127.0.0.1",
     "http://192.168.10.108:8000", # IP local de desarrollo    
     "http://0.0.0.0:3000",
-    "http://198.23.62.135:8000/"
+    "http://198.23.62.135:8000"
     # Agregar tus dominios de producción aquí
     # "https://tudominio.com",
     # "https://www.tudominio.com",
@@ -53,7 +54,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,                    # ✅ Permite cookies
-    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH", "HEAD"],
+    allow_methods=["*"],
     allow_headers=[
         "Content-Type",
         "Authorization",
