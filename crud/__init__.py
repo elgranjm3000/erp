@@ -76,7 +76,15 @@ from .inventory import (
     create_warehouse_for_company,
     get_warehouses_stats_by_company,
     update_warehouse_for_company,
-    delete_warehouse_for_company
+    delete_warehouse_for_company,
+    # Warehouse specific products
+    get_warehouse_products_by_warehouse,
+    get_low_stock_products_by_warehouse,
+    get_warehouse_products_by_warehouse_and_company,
+    get_warehouse_products_by_product_and_company,
+    get_low_stock_warehouse_products_by_company,
+    transfer_stock_between_warehouses,
+    adjust_warehouse_product_stock
 )
 
 # Funciones de facturas
@@ -209,6 +217,10 @@ __all__ = [
     'get_inventory_movements_by_company', 'get_inventory_movement_by_id_and_company',
     'get_inventory_movements_by_product_and_company', 'get_inventory_movements_by_invoice',
     'get_warehouses_by_company', 'get_warehouse_by_id_and_company', 'create_warehouse_for_company',
+    'get_warehouse_products_by_warehouse', 'get_low_stock_products_by_warehouse',
+    'get_warehouse_products_by_warehouse_and_company', 'get_warehouse_products_by_product_and_company',
+    'get_low_stock_warehouse_products_by_company', 'transfer_stock_between_warehouses',
+    'adjust_warehouse_product_stock',
     
     # Invoices
     'create_invoice', 'view_invoice', 'edit_invoice', 'delete_invoice',

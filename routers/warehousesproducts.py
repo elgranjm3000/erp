@@ -13,14 +13,14 @@ router = APIRouter()
 
 @router.post("/warehouse-products/", response_model=schemas.WarehouseProduct)
 def create_or_update_wp(
-    wp: schemas.WarehouseProductCreate, 
+    wp: schemas.WarehouseProductCreate,
     current_user: User = Depends(check_permission(required_role="user")),
     db: Session = Depends(database.get_db)
 ):
     """Crear o actualizar stock de producto en almacén de mi empresa"""
     return crud.create_or_update_warehouse_product_for_company(
-        db=db, 
-        wp=wp,
+        db=db,
+        wp_data=wp,
         company_id=current_user.company_id
     )
 
@@ -147,38 +147,32 @@ def get_low_stock_all_warehouses(
 
 @router.post("/warehouse-products/transfer")
 def transfer_stock(
-    from_warehouse_id: int,
-    to_warehouse_id: int,
-    product_id: int,
-    quantity: int,
+    transfer: schemas.StockTransferCreate,
     current_user: User = Depends(check_permission(required_role="manager")),
     db: Session = Depends(database.get_db)
 ):
     """Transferir stock entre almacenes de mi empresa"""
     return crud.transfer_stock_between_warehouses(
         db=db,
-        from_warehouse_id=from_warehouse_id,
-        to_warehouse_id=to_warehouse_id,
-        product_id=product_id,
-        quantity=quantity,
+        from_warehouse_id=transfer.from_warehouse_id,
+        to_warehouse_id=transfer.to_warehouse_id,
+        product_id=transfer.product_id,
+        quantity=transfer.quantity,
         company_id=current_user.company_id
     )
 
 @router.post("/warehouse-products/adjust-stock")
 def adjust_stock(
-    warehouse_id: int,
-    product_id: int,
-    adjustment: int,
-    reason: str,
+    adjustment: schemas.StockAdjustmentCreate,
     current_user: User = Depends(check_permission(required_role="manager")),
     db: Session = Depends(database.get_db)
 ):
     """Ajustar stock por diferencias de inventario"""
     return crud.adjust_warehouse_product_stock(
         db=db,
-        warehouse_id=warehouse_id,
-        product_id=product_id,
-        adjustment=adjustment,
-        reason=reason,
+        warehouse_id=adjustment.warehouse_id,
+        product_id=adjustment.product_id,
+        adjustment=adjustment.adjustment,
+        reason=adjustment.reason,
         company_id=current_user.company_id
     )

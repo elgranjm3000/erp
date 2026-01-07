@@ -94,7 +94,7 @@ def create_purchase_for_company(
 
                 # Crear item de compra
                 purchase_item = models.PurchaseItem(
-                    purchase_id=purchase.id,
+                    # purchase_id eliminado - no existe en el modelo
                     product_id=product.id,
                     quantity=item_data.quantity,
                     price_per_unit=price_per_unit,
@@ -306,7 +306,7 @@ def update_purchase_status_for_company(
                     product.quantity += item.quantity
 
                     # Actualizar precio del producto
-                    product.price = item.price_per_unit
+                    product.price = item.unit_cost
 
                     # Actualizar stock en almacén específico
                     if warehouse:
@@ -333,6 +333,7 @@ def update_purchase_status_for_company(
                             quantity=item.quantity,
                             timestamp=datetime.utcnow(),
                             description=f"Purchase received - {purchase.purchase_number}",
+                            purchase_id=purchase.id
                         )
                         db.add(movement)
                     else:
@@ -343,6 +344,7 @@ def update_purchase_status_for_company(
                             quantity=item.quantity,
                             timestamp=datetime.utcnow(),
                             description=f"Purchase received - {purchase.purchase_number}",
+                            purchase_id=purchase.id
                         )
                         db.add(movement)
 
@@ -395,6 +397,7 @@ def update_purchase_status_for_company(
                                 quantity=item.quantity,
                                 timestamp=datetime.utcnow(),
                                 description=f"Purchase status reverted - {purchase.purchase_number}",
+                                purchase_id=purchase.id
                             )
                             db.add(movement)
                     else:
@@ -405,6 +408,7 @@ def update_purchase_status_for_company(
                             quantity=item.quantity,
                             timestamp=datetime.utcnow(),
                             description=f"Purchase status reverted - {purchase.purchase_number}",
+                            purchase_id=purchase.id
                         )
                         db.add(movement)
 
@@ -603,11 +607,11 @@ def create_purchase_from_low_stock(
             line_total = product.price * suggested_quantity
             
             purchase_item = models.PurchaseItem(
-                purchase_id=purchase.id,
+                # purchase_id eliminado - no existe en el modelo
                 product_id=product.id,
                 quantity=suggested_quantity,
-                price_per_unit=product.price,
-                total_price=line_total
+                unit_cost=product.price,
+                total_cost=line_total
             )
             
             db.add(purchase_item)
@@ -698,8 +702,8 @@ def duplicate_purchase_for_company(db: Session, purchase_id: int, company_id: in
                 purchase_id=new_purchase.id,
                 product_id=item.product_id,
                 quantity=item.quantity,
-                price_per_unit=item.price_per_unit,
-                total_price=item.total_price
+                unit_cost=item.unit_cost,
+                total_cost=item.total_cost
             )
             db.add(new_item)
         

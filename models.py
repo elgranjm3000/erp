@@ -168,13 +168,15 @@ class InventoryMovement(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     product_id = Column(Integer, ForeignKey('products.id'))
-    invoice_id = Column(Integer)
+    warehouse_id = Column(Integer, ForeignKey('warehouses.id'), nullable=True)
+    invoice_id = Column(Integer, nullable=True)
     movement_type = Column(String(60))  # Puede ser 'entrada', 'salida'
     quantity = Column(Integer)
     timestamp = Column(DateTime, default=func.now())
     description = Column(Text)
 
     product = relationship("Product", back_populates="inventory_movements")
+    warehouse = relationship("Warehouse")
 
 class Supplier(Base):
     __tablename__ = "suppliers"

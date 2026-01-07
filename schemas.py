@@ -548,6 +548,38 @@ class CreditMovement(CreditMovementCreate):
     class Config:
         from_attributes = True
 
+# ================= ESQUEMAS DE TRANSFERENCIA Y AJUSTE DE STOCK =================
+
+class StockTransferCreate(BaseModel):
+    from_warehouse_id: int
+    to_warehouse_id: int
+    product_id: int
+    quantity: int
+
+    @validator('quantity')
+    def validate_quantity(cls, v):
+        if v <= 0:
+            raise ValueError('Quantity must be greater than 0')
+        return v
+
+class StockAdjustmentCreate(BaseModel):
+    warehouse_id: int
+    product_id: int
+    adjustment: int
+    reason: str
+
+    @validator('adjustment')
+    def validate_adjustment(cls, v):
+        if v == 0:
+            raise ValueError('Adjustment cannot be zero')
+        return v
+
+    @validator('reason')
+    def validate_reason(cls, v):
+        if not v or not v.strip():
+            raise ValueError('Reason is required')
+        return v
+
 # ================= ESQUEMAS DE RESPUESTA DE ERROR =================
 
 class ErrorResponse(BaseModel):

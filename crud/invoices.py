@@ -108,10 +108,21 @@ def create_invoice_for_company(
             company_id=company_id,
             error_message="Customer not found in your company"
         )
-    
+
+    # Verificar que el almacén pertenezca a la empresa (si se especifica)
+    warehouse = None
+    if hasattr(invoice_data, 'warehouse_id') and invoice_data.warehouse_id:
+        warehouse = verify_company_ownership(
+            db=db,
+            model_class=models.Warehouse,
+            item_id=invoice_data.warehouse_id,
+            company_id=company_id,
+            error_message="Warehouse not found in your company"
+        )
+
     # Generar número de factura
     invoice_number = f"{company.invoice_prefix}-{company.next_invoice_number:06d}"
-    
+
     try:
         # Crear factura
         invoice = models.Invoice(
@@ -126,12 +137,12 @@ def create_invoice_for_company(
             due_date=getattr(invoice_data, 'due_date', None),
             notes=getattr(invoice_data, 'notes', None)
         )
-        
+
         db.add(invoice)
         db.flush()  # Para obtener el ID
-        
+
         total_amount = 0
-        
+
         # Procesar items si existen
         if hasattr(invoice_data, 'items') and invoice_data.items:
             for item_data in invoice_data.items:
@@ -143,18 +154,30 @@ def create_invoice_for_company(
                     company_id=company_id,
                     error_message="Product not found in your company"
                 )
-                
-                # Verificar stock disponible
-                if product.quantity < item_data.quantity:
+
+                # Verificar stock disponible en el almacén si está especificado
+                if warehouse:
+                    warehouse_product = db.query(models.WarehouseProduct).filter(
+                        models.WarehouseProduct.warehouse_id == warehouse.id,
+                        models.WarehouseProduct.product_id == product.id
+                    ).first()
+
+                    if not warehouse_product or warehouse_product.stock < item_data.quantity:
+                        raise HTTPException(
+                            status_code=400,
+                            detail=f"Insufficient stock for product {product.name} in warehouse {warehouse.name}"
+                        )
+                elif product.quantity < item_data.quantity:
+                    # Si no hay almacén especificado, verificar stock global
                     raise HTTPException(
                         status_code=400,
                         detail=f"Insufficient stock for product {product.name}"
                     )
-                
+
                 # Calcular precio
                 unit_price = getattr(item_data, 'price_per_unit', product.price)
                 line_total = unit_price * item_data.quantity
-                
+
                 # Crear item de factura
                 invoice_item = models.InvoiceItem(
                     invoice_id=invoice.id,
@@ -163,24 +186,52 @@ def create_invoice_for_company(
                     price_per_unit=unit_price,
                     total_price=line_total
                 )
-                
+
                 db.add(invoice_item)
                 total_amount += line_total
-                
+
                 # Actualizar stock si es factura confirmada
                 if invoice.status == 'factura':
+                    # Actualizar stock global del producto
                     product.quantity -= item_data.quantity
-                    
-                    # Crear movimiento de inventario
-                    movement = models.InventoryMovement(
-                        product_id=product.id,
-                        movement_type='sale',
-                        quantity=item_data.quantity,
-                        timestamp=datetime.utcnow(),
-                        description=f"Sale - Invoice {invoice_number}",
-                        invoice_id=invoice.id
-                    )
-                    db.add(movement)
+
+                    # Actualizar stock en el almacén si está especificado
+                    if warehouse:
+                        warehouse_product = db.query(models.WarehouseProduct).filter(
+                            models.WarehouseProduct.warehouse_id == warehouse.id,
+                            models.WarehouseProduct.product_id == product.id
+                        ).first()
+
+                        if warehouse_product:
+                            warehouse_product.stock -= item_data.quantity
+
+                            # Crear movimiento de inventario con referencia al almacén
+                            movement = models.InventoryMovement(
+                                product_id=product.id,
+                                warehouse_id=warehouse.id,
+                                movement_type='sale',
+                                quantity=item_data.quantity,
+                                timestamp=datetime.utcnow(),
+                                description=f"Sale - Invoice {invoice_number}",
+                                invoice_id=invoice.id
+                            )
+                            db.add(movement)
+                        else:
+                            raise HTTPException(
+                                status_code=400,
+                                detail=f"Warehouse product not found for {product.name}"
+                            )
+                    else:
+                        # Crear movimiento de inventario sin almacén específico
+                        movement = models.InventoryMovement(
+                            product_id=product.id,
+                            movement_type='sale',
+                            quantity=item_data.quantity,
+                            timestamp=datetime.utcnow(),
+                            description=f"Sale - Invoice {invoice_number}",
+                            invoice_id=invoice.id
+                        )
+                        db.add(movement)
         
         # Aplicar descuento
         if invoice.discount > 0:
@@ -220,9 +271,9 @@ def view_invoice_by_company(db: Session, invoice_id: int, company_id: int):
     )
 
 def edit_invoice_for_company(
-    db: Session, 
-    invoice_id: int, 
-    invoice_data: schemas.InvoiceUpdate, 
+    db: Session,
+    invoice_id: int,
+    invoice_data: schemas.InvoiceUpdate,
     company_id: int
 ):
     """Editar factura de empresa"""
@@ -233,22 +284,148 @@ def edit_invoice_for_company(
         company_id=company_id,
         error_message="Invoice not found in your company"
     )
-    
-    # Solo permitir edición si es presupuesto
-    if invoice.status == 'factura':
+
+    # Guardar el almacén original
+    original_warehouse_id = invoice.warehouse_id
+    new_warehouse_id = getattr(invoice_data, 'warehouse_id', original_warehouse_id)
+
+    # Verificar nuevo almacén si se está cambiando
+    new_warehouse = None
+    if hasattr(invoice_data, 'warehouse_id') and new_warehouse_id:
+        if new_warehouse_id != original_warehouse_id:
+            new_warehouse = verify_company_ownership(
+                db=db,
+                model_class=models.Warehouse,
+                item_id=new_warehouse_id,
+                company_id=company_id,
+                error_message="New warehouse not found in your company"
+            )
+
+    try:
+        # Si hay nuevos items y la factura está confirmada, revertir stock anterior
+        if hasattr(invoice_data, 'items') and invoice_data.items and invoice.status == 'factura':
+            # Revertir stock de los items anteriores
+            for old_item in invoice.invoice_items:
+                product = db.query(models.Product).filter(
+                    models.Product.id == old_item.product_id
+                ).first()
+
+                if product:
+                    # Revertir stock global
+                    product.quantity += old_item.quantity
+
+                    # Revertir stock en almacén original
+                    if original_warehouse_id:
+                        warehouse_product = db.query(models.WarehouseProduct).filter(
+                            models.WarehouseProduct.warehouse_id == original_warehouse_id,
+                            models.WarehouseProduct.product_id == old_item.product_id
+                        ).first()
+
+                        if warehouse_product:
+                            warehouse_product.stock += old_item.quantity
+
+            # Eliminar items antiguos
+            db.query(models.InvoiceItem).filter(
+                models.InvoiceItem.invoice_id == invoice_id
+            ).delete()
+
+            # Calcular nuevo total
+            total_amount = 0
+
+            # Agregar nuevos items y actualizar stock
+            for item_data in invoice_data.items:
+                product = verify_company_ownership(
+                    db=db,
+                    model_class=models.Product,
+                    item_id=item_data.product_id,
+                    company_id=company_id,
+                    error_message="Product not found in your company"
+                )
+
+                # Verificar stock disponible
+                if new_warehouse:
+                    warehouse_product = db.query(models.WarehouseProduct).filter(
+                        models.WarehouseProduct.warehouse_id == new_warehouse.id,
+                        models.WarehouseProduct.product_id == product.id
+                    ).first()
+
+                    if not warehouse_product or warehouse_product.stock < item_data.quantity:
+                        raise HTTPException(
+                            status_code=400,
+                            detail=f"Insufficient stock for product {product.name} in warehouse {new_warehouse.name}"
+                        )
+                elif product.quantity < item_data.quantity:
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"Insufficient stock for product {product.name}"
+                    )
+
+                # Calcular precio
+                unit_price = getattr(item_data, 'price_per_unit', product.price)
+                line_total = unit_price * item_data.quantity
+
+                # Crear nuevo item
+                new_item = models.InvoiceItem(
+                    invoice_id=invoice.id,
+                    product_id=product.id,
+                    quantity=item_data.quantity,
+                    price_per_unit=unit_price,
+                    total_price=line_total
+                )
+
+                db.add(new_item)
+                total_amount += line_total
+
+                # Actualizar stock
+                product.quantity -= item_data.quantity
+
+                if new_warehouse:
+                    warehouse_product = db.query(models.WarehouseProduct).filter(
+                        models.WarehouseProduct.warehouse_id == new_warehouse.id,
+                        models.WarehouseProduct.product_id == product.id
+                    ).first()
+
+                    if warehouse_product:
+                        warehouse_product.stock -= item_data.quantity
+
+                        # Crear movimiento de inventario
+                        movement = models.InventoryMovement(
+                            product_id=product.id,
+                            warehouse_id=new_warehouse.id,
+                            movement_type='sale',
+                            quantity=item_data.quantity,
+                            timestamp=datetime.utcnow(),
+                            description=f"Updated sale - Invoice {invoice.invoice_number}",
+                            invoice_id=invoice.id
+                        )
+                        db.add(movement)
+
+            # Actualizar total
+            invoice.total_amount = total_amount
+
+        # Actualizar otros campos
+        update_data = invoice_data.dict(exclude_unset=True)
+        if 'items' in update_data:
+            del update_data['items']
+
+        for key, value in update_data.items():
+            if hasattr(invoice, key) and key != 'warehouse_id':
+                setattr(invoice, key, value)
+
+        # Actualizar warehouse_id por separado si cambió
+        if hasattr(invoice_data, 'warehouse_id') and new_warehouse_id is not None:
+            invoice.warehouse_id = new_warehouse_id
+
+        db.commit()
+        db.refresh(invoice)
+        return invoice
+
+    except Exception as e:
+        db.rollback()
         raise HTTPException(
-            status_code=400,
-            detail="Cannot edit confirmed invoices"
+            status_code=500,
+            detail=f"Error updating invoice: {str(e)}"
         )
-    
-    # Actualizar campos
-    for key, value in invoice_data.dict(exclude_unset=True).items():
-        if hasattr(invoice, key):
-            setattr(invoice, key, value)
-    
-    db.commit()
-    db.refresh(invoice)
-    return invoice
 
 def delete_invoice_for_company(db: Session, invoice_id: int, company_id: int):
     """Eliminar factura de empresa"""

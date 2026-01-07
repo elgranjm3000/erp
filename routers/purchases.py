@@ -13,24 +13,25 @@ router = APIRouter()
 
 # ================= COMPRAS CON FILTRO POR EMPRESA =================
 
-@router.post("/purchases", response_model=schemas.Purchase)
+@router.post("/purchases", response_model=schemas.PurchaseResponse)
 def create_purchase_endpoint(
-    purchase: schemas.PurchaseCreate, 
+    purchase: schemas.PurchaseCreate,
     current_user: User = Depends(check_permission(required_role="user")),
     db: Session = Depends(get_db)
 ):
     """Crear compra en mi empresa"""
     try:
         created_purchase = crud.create_purchase_for_company(
-            db=db, 
-            purchase=purchase,
+            db=db,
+            purchase_data=purchase,
             company_id=current_user.company_id
-        )        
+        )
+
         return created_purchase
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-@router.get("/purchases", response_model=List[schemas.Purchase])
+@router.get("/purchases", response_model=List[schemas.PurchaseResponse])
 def list_purchases(
     skip: int = 0,
     limit: int = 100,
@@ -47,7 +48,7 @@ def list_purchases(
         status=status
     )
 
-@router.get("/purchases/{purchase_id}", response_model=schemas.Purchase)
+@router.get("/purchases/{purchase_id}", response_model=schemas.PurchaseResponse)
 def get_purchase(
     purchase_id: int,
     current_user: User = Depends(verify_token),
@@ -60,7 +61,7 @@ def get_purchase(
         company_id=current_user.company_id
     )
 
-@router.put("/purchases/{purchase_id}", response_model=schemas.Purchase)
+@router.put("/purchases/{purchase_id}", response_model=schemas.PurchaseResponse)
 def update_purchase(
     purchase_id: int,
     purchase_data: schemas.PurchaseUpdate,
@@ -116,7 +117,7 @@ def get_purchases_summary(
         company_id=current_user.company_id
     )
 
-@router.get("/purchases/pending", response_model=List[schemas.Purchase])
+@router.get("/purchases/pending", response_model=List[schemas.PurchaseResponse])
 def get_pending_purchases(
     current_user: User = Depends(verify_token),
     db: Session = Depends(get_db)

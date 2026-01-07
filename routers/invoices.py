@@ -88,12 +88,13 @@ def delete_invoice_endpoint(
 
 # ================= PRESUPUESTOS =================
 
-"""@router.post("/budgets/", response_model=schemas.Invoice)
+@router.post("/budgets/", response_model=schemas.Invoice)
 def create_budget_endpoint(
     budget_data: schemas.InvoiceCreate, 
     current_user: User = Depends(check_permission(required_role="user")),
     db: Session = Depends(database.get_db)
 ):
+    """Crear presupuesto en mi empresa"""
     # Forzar status a presupuesto
     budget_data.status = "presupuesto"
     return crud.create_invoice_for_company(
@@ -108,6 +109,7 @@ def confirm_budget_endpoint(
     current_user: User = Depends(check_permission(required_role="user")),
     db: Session = Depends(database.get_db)
 ):
+    """Confirmar presupuesto como factura"""
     return crud.confirm_budget_for_company(
         db=db, 
         budget_id=budget_id,
@@ -123,6 +125,7 @@ def create_credit_movement(
     current_user: User = Depends(check_permission(required_role="manager")),
     db: Session = Depends(database.get_db)
 ):
+    """Crear movimiento de crédito (nota de crédito/devolución)"""
     return crud.create_credit_movement_for_company(
         db=db,
         invoice_id=invoice_id,
@@ -137,6 +140,7 @@ def get_invoices_summary(
     current_user: User = Depends(verify_token),
     db: Session = Depends(database.get_db)
 ):
+    """Resumen estadístico de facturas de mi empresa"""
     return crud.get_invoices_stats_by_company(
         db=db,
         company_id=current_user.company_id
@@ -147,8 +151,9 @@ def get_pending_invoices(
     current_user: User = Depends(verify_token),
     db: Session = Depends(database.get_db)
 ):
+    """Obtener facturas pendientes de mi empresa"""
     return crud.get_invoices_by_company(
         db=db,
         company_id=current_user.company_id,
         status="presupuesto"
-    )"""
+    )

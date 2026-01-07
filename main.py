@@ -8,7 +8,7 @@ from fastapi.responses import JSONResponse
 
 
 # Importar solo los routers que existen
-from routers import products, movements, warehouses, users, warehousesproducts, invoices, purchases, customers, suppliers
+from routers import products, movements, warehouses, users, warehousesproducts, invoices, purchases, customers, suppliers, categories
 
 # Importar dependencias
 import database
@@ -16,6 +16,7 @@ import database
 # ================= VARIABLES DE ENTORNO =================
 
 ALLOWED_ORIGINS = [
+    "http://localhost:3001",
     "http://localhost:8000",
     "http://localhost:3000",      # Desarrollo local Next.js
     "http://127.0.0.1:3000",
@@ -80,6 +81,7 @@ app.add_middleware(
 # ================= INCLUIR ROUTERS =================
 
 app.include_router(users.router, prefix="/api/v1", tags=["👥 Usuarios"])
+app.include_router(categories.router, prefix="/api/v1", tags=["🏷️ Categorías"])
 app.include_router(products.router, prefix="/api/v1", tags=["📦 Productos"])
 app.include_router(suppliers.router, prefix="/api/v1", tags=["📦 Proveedores"])
 app.include_router(customers.router, prefix="/api/v1", tags=["👥 Clientes"])

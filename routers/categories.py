@@ -41,8 +41,8 @@ def read_category(
 
 @router.post("/categories", response_model=schemas.Category)
 def create_category(
-    category: schemas.CategoryCreate, 
-    current_user: User = Depends(check_permission(role="user")),
+    category: schemas.CategoryCreate,
+    current_user: User = Depends(check_permission(required_role="user")),
     db: Session = Depends(database.get_db)
 ):
     """Crear categoría en mi empresa"""
@@ -54,9 +54,9 @@ def create_category(
 
 @router.put("/categories/{category_id}", response_model=schemas.Category)
 def update_category(
-    category_id: int, 
-    category_data: schemas.CategoryUpdate, 
-    current_user: User = Depends(check_permission(role="user")),
+    category_id: int,
+    category_data: schemas.CategoryUpdate,
+    current_user: User = Depends(check_permission(required_role="user")),
     db: Session = Depends(database.get_db)
 ):
     """Actualizar categoría de mi empresa"""
@@ -69,8 +69,8 @@ def update_category(
 
 @router.delete("/categories/{category_id}")
 def delete_category(
-    category_id: int, 
-    current_user: User = Depends(check_permission(role="manager")),
+    category_id: int,
+    current_user: User = Depends(check_permission(required_role="manager")),
     db: Session = Depends(database.get_db)
 ):
     """Eliminar categoría de mi empresa"""
