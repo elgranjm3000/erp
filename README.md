@@ -7,8 +7,16 @@ Un sistema de planificación de recursos empresariales (ERP) desarrollado con Fa
 - **Gestión de Productos**: CRUD completo de productos con categorías
 - **Control de Inventario**: Seguimiento de stock por almacén y movimientos de inventario
 - **Sistema de Ventas**: Creación de presupuestos, facturas y gestión de clientes
+  - Actualización automática de stock en almacenes al crear facturas
+  - Revertido de stock al editar facturas confirmadas
 - **Gestión de Compras**: Registro de compras a proveedores con actualización automática de inventario
+  - Actualización automática de stock en almacenes al recibir compras
+  - Revertido de stock al cambiar estado de compras
 - **Multi-almacén**: Soporte para múltiples almacenes con stock independiente
+  - Consulta de productos por almacén
+  - Transferencia de stock entre almacenes
+  - Ajustes de stock en almacenes
+- **Gestión de Categorías**: Organización de productos en categorías jerárquicas
 - **Autenticación**: Sistema de autenticación JWT para usuarios
 - **Base de datos**: Integración con MySQL usando SQLAlchemy ORM
 - **Migraciones**: Control de versiones de base de datos con Alembic
@@ -114,12 +122,26 @@ Una vez que el servidor esté en funcionamiento, puedes acceder a:
 │   ├── invoices.py        # Endpoints de facturas
 │   ├── purchases.py       # Endpoints de compras
 │   ├── warehouses.py      # Endpoints de almacenes
+│   ├── warehousesproducts.py # Endpoints de productos por almacén
+│   ├── categories.py      # Endpoints de categorías
+│   ├── customers.py       # Endpoints de clientes
+│   ├── suppliers.py       # Endpoints de proveedores
 │   ├── movements.py       # Endpoints de movimientos
-│   └── users.py           # Endpoints de usuarios
+│   └── users.py           # Endpoints de usuarios y autenticación
+├── crud/                   # Operaciones CRUD de base de datos
+│   ├── base.py            # Funciones base y utilidades
+│   ├── products.py        # CRUD de productos
+│   ├── invoices.py        # CRUD de facturas
+│   ├── purchases.py       # CRUD de compras
+│   ├── warehouses.py      # CRUD de almacenes
+│   ├── warehousesproducts.py # CRUD de productos por almacén
+│   ├── categories.py      # CRUD de categorías
+│   ├── customers.py       # CRUD de clientes
+│   ├── suppliers.py       # CRUD de proveedores
+│   └── companies.py       # CRUD de empresas (multi-tenant)
 ├── main.py                 # Archivo principal de la aplicación
 ├── models.py              # Modelos de SQLAlchemy
 ├── schemas.py             # Esquemas de Pydantic
-├── crud.py                # Operaciones CRUD
 ├── database.py            # Configuración de base de datos
 ├── auth.py                # Sistema de autenticación
 ├── config.py              # Configuraciones de la aplicación
@@ -137,28 +159,69 @@ El sistema utiliza JWT para la autenticación. Para acceder a endpoints protegid
 
 ## 📊 Principales Endpoints
 
+### Autenticación y Usuarios
+- `POST /api/v1/auth/register-company` - Registrar nueva empresa con admin
+- `POST /api/v1/auth/login` - Iniciar sesión
+- `GET /api/v1/users/me` - Ver perfil de usuario
+
+### Categorías
+- `GET /api/v1/categories` - Listar categorías
+- `POST /api/v1/categories` - Crear categoría (requiere rol manager)
+- `PUT /api/v1/categories/{id}` - Actualizar categoría
+- `DELETE /api/v1/categories/{id}` - Eliminar categoría
+
 ### Productos
-- `GET /products` - Listar productos
-- `POST /products` - Crear producto
-- `PUT /products/{id}` - Actualizar producto
-- `DELETE /products/{id}` - Eliminar producto
-
-### Facturas
-- `POST /invoices/` - Crear factura
-- `GET /invoices/{id}` - Ver factura
-- `PUT /invoice/{id}` - Editar factura
-- `DELETE /invoices/{id}` - Eliminar factura
-
-### Compras
-- `POST /purchases` - Registrar compra
+- `GET /api/v1/products` - Listar productos
+- `POST /api/v1/products` - Crear producto
+- `GET /api/v1/products/{id}` - Ver producto
+- `PUT /api/v1/products/{id}` - Actualizar producto
+- `DELETE /api/v1/products/{id}` - Eliminar producto
 
 ### Almacenes
-- `GET /warehouses` - Listar almacenes
-- `POST /warehouses` - Crear almacén
+- `GET /api/v1/warehouses` - Listar almacenes
+- `POST /api/v1/warehouses` - Crear almacén
+- `GET /api/v1/warehouses/{id}` - Ver almacén
+- `PUT /api/v1/warehouses/{id}` - Actualizar almacén
+- `DELETE /api/v1/warehouses/{id}` - Eliminar almacén
+- `GET /api/v1/warehouses/{id}/products` - **Ver productos en almacén**
+- `GET /api/v1/warehouses/products/low-stock` - Productos con stock bajo
 
-### Gestión de Stock
-- `POST /warehouse-products/` - Asignar producto a almacén
-- `PUT /warehouse-products/{warehouse_id}/{product_id}` - Actualizar stock
+### Gestión de Stock por Almacén
+- `POST /api/v1/warehouse-products/` - Asignar producto a almacén
+- `PUT /api/v1/warehouse-products/{warehouse_id}/{product_id}` - Actualizar stock
+- `POST /api/v1/warehouse-products/transfer` - **Transferir stock entre almacenes**
+- `POST /api/v1/warehouse-products/adjust` - **Ajustar stock con motivo**
+
+### Clientes
+- `GET /api/v1/customers` - Listar clientes
+- `POST /api/v1/customers` - Crear cliente
+- `PUT /api/v1/customers/{id}` - Actualizar cliente
+- `DELETE /api/v1/customers/{id}` - Eliminar cliente
+
+### Proveedores
+- `GET /api/v1/suppliers` - Listar proveedores
+- `POST /api/v1/suppliers` - Crear proveedor
+- `PUT /api/v1/suppliers/{id}` - Actualizar proveedor
+- `DELETE /api/v1/suppliers/{id}` - Eliminar proveedor
+
+### Facturas (Ventas)
+- `POST /api/v1/invoices/` - Crear factura (actualiza stock en almacén)
+- `GET /api/v1/invoices` - Listar facturas
+- `GET /api/v1/invoices/{id}` - Ver factura
+- `PUT /api/v1/invoices/{id}` - **Editar factura (revierte y aplica stock)**
+- `DELETE /api/v1/invoices/{id}` - Eliminar factura
+- `PUT /api/v1/invoices/{id}/status` - Cambiar estado (presupuesto → factura)
+
+### Compras
+- `POST /api/v1/purchases` - Registrar compra (actualiza stock en almacén)
+- `GET /api/v1/purchases` - Listar compras
+- `GET /api/v1/purchases/{id}` - Ver compra
+- `PUT /api/v1/purchases/{id}` - Actualizar compra
+- `DELETE /api/v1/purchases/{id}` - Eliminar compra
+- `PUT /api/v1/purchases/{id}/status` - **Cambiar estado (actualiza/revierte stock)**
+
+### Movimientos de Inventario
+- `GET /api/v1/movements` - Ver movimientos (con referencia a almacén)
 
 ## 🗄️ Modelo de Datos
 
@@ -167,22 +230,117 @@ El sistema maneja las siguientes entidades principales:
 - **Products**: Productos del inventario
 - **Categories**: Categorías de productos
 - **Warehouses**: Almacenes
-- **WarehouseProducts**: Stock por almacén
+- **WarehouseProducts**: Stock por almacén (relación muchos a muchos)
 - **Invoices**: Facturas y presupuestos
 - **InvoiceItems**: Detalles de facturas
 - **Purchases**: Compras a proveedores
 - **PurchaseItems**: Detalles de compras
-- **InventoryMovements**: Movimientos de inventario
+- **InventoryMovements**: Movimientos de inventario (con referencia a almacén)
 - **Users**: Usuarios del sistema
+- **Companies**: Empresas (multi-tenant)
+- **Customers**: Clientes
+- **Suppliers**: Proveedores
+
+### Características Avanzadas del Modelo:
+
+- **Multi-tenant**: Todos los datos están aislados por empresa
+- **Stock por almacén**: Cada producto puede tener stock en múltiples almacenes
+- **Movimientos rastreados**: Todos los movimientos de inventario registran:
+  - Producto afectado
+  - Almacén (si aplica)
+  - Tipo de movimiento (venta, compra, ajuste, transferencia)
+  - Cantidad y timestamp
+  - Descripción del movimiento
 
 ## 🔄 Flujo de Trabajo
 
-1. **Configurar almacenes** y **categorías**
-2. **Crear productos** y asignarlos a categorías
-3. **Registrar compras** para aumentar el inventario
-4. **Distribuir stock** entre almacenes
-5. **Crear facturas** para registrar ventas
-6. **Monitorear movimientos** de inventario
+### Configuración Inicial
+1. **Registrar empresa** con usuario administrador
+2. **Configurar almacenes** donde se almacenarán los productos
+3. **Crear categorías** para organizar el inventario
+4. **Registrar proveedores** y **clientes**
+
+### Gestión de Inventario
+5. **Crear productos** y asignarlos a categorías
+6. **Registrar compras** a proveedores:
+   - Al crear compra con estado "received", el stock se agrega automáticamente
+   - Se actualiza stock global y stock del almacén especificado
+   - Se crea movimiento de inventario con referencia al almacén
+7. **Distribuir stock** entre almacenes (si es necesario):
+   - Usar endpoint de transferencia entre almacenes
+   - Ajustar stock con motivos específicos (daño, pérdida, etc.)
+
+### Ventas y Facturación
+8. **Crear facturas** para registrar ventas:
+   - Al confirmar factura, el stock se descuenta automáticamente
+   - Se descuenta stock del almacén especificado en la factura
+   - Se crea movimiento de inventario con referencia al almacén
+9. **Editar facturas** (si es necesario):
+   - El sistema revierte el stock anterior y aplica el nuevo
+   - Funciona incluso con facturas confirmadas
+10. **Monitorear movimientos** de inventario con filtros por almacén
+
+### Gestión de Estados
+- **Compras**: Cambiar estado de "pending" a "received" para agregar stock
+- **Compras**: Cambiar de "received" a otro estado para revertir stock
+- **Facturas**: Cambiar de "presupuesto" a "factura" para confirmar venta
+
+## 💡 Ejemplos de Uso
+
+### Registrar una compra con recepción inmediata
+```json
+POST /api/v1/purchases
+{
+  "supplier_id": 3,
+  "warehouse_id": 5,
+  "status": "received",
+  "date": "2026-01-06",
+  "items": [
+    {
+      "product_id": 18,
+      "quantity": 50,
+      "price_per_unit": 1200.00
+    }
+  ]
+}
+```
+**Resultado**: El stock del producto aumenta en 50 unidades en el almacén 5.
+
+### Transferir stock entre almacenes
+```json
+POST /api/v1/warehouse-products/transfer
+{
+  "from_warehouse_id": 1,
+  "to_warehouse_id": 2,
+  "product_id": 10,
+  "quantity": 25
+}
+```
+**Resultado**: 25 unidades se mueven del almacén 1 al almacén 2.
+
+### Ver productos de un almacén
+```
+GET /api/v1/warehouses/5/products
+```
+**Resultado**: Lista todos los productos con su stock en el almacén 5.
+
+### Editar factura confirmada
+```json
+PUT /api/v1/invoices/123
+{
+  "customer_id": 5,
+  "warehouse_id": 2,
+  "status": "factura",
+  "items": [
+    {
+      "product_id": 10,
+      "quantity": 15,
+      "price": 100.00
+    }
+  ]
+}
+```
+**Resultado**: El sistema revierte el stock anterior y descuenta el nuevo stock del almacén 2.
 
 ## 🐛 Resolución de Problemas
 
