@@ -338,11 +338,19 @@ class Supplier(SupplierBase):
 class InvoiceItemCreate(BaseModel):
     product_id: int
     quantity: int
+    tax_rate: Optional[float] = 16.0  # ✅ VENEZUELA: Tasa de IVA (16%, 8%, 0%)
+    is_exempt: Optional[bool] = False  # ✅ VENEZUELA: Si está exento de IVA
 
     @validator('quantity')
     def validate_quantity(cls, v):
         if v <= 0:
             raise ValueError('Quantity must be greater than 0')
+        return v
+
+    @validator('tax_rate')
+    def validate_tax_rate(cls, v):
+        if v is not None and v not in [0, 8, 16]:
+            raise ValueError('Tax rate must be 0%%, 8%%, or 16%%')
         return v
 
 class InvoiceItem(BaseModel):
@@ -351,6 +359,9 @@ class InvoiceItem(BaseModel):
     quantity: int
     price_per_unit: float
     total_price: float
+    tax_rate: Optional[float] = 16.0  # ✅ VENEZUELA
+    tax_amount: Optional[float] = 0.0  # ✅ VENEZUELA
+    is_exempt: Optional[bool] = False  # ✅ VENEZUELA
 
     class Config:
         from_attributes = True
@@ -364,11 +375,31 @@ class InvoiceCreate(BaseModel):
     items: List[InvoiceItemCreate]
     notes: Optional[str] = None
     payment_terms: Optional[str] = None
-    
+
+    # ✅ VENEZUELA: Información fiscal
+    transaction_type: Optional[str] = "contado"  # 'contado', 'credito'
+    payment_method: Optional[str] = "efectivo"  # 'efectivo', 'transferencia', etc.
+    credit_days: Optional[int] = 0
+    iva_percentage: Optional[float] = 16.0  # 16%, 8%, 0%
+    customer_phone: Optional[str] = None
+    customer_address: Optional[str] = None
+
     @validator('discount')
     def validate_discount(cls, v):
-        if v < 0 or v > 100:
+        if v is not None and (v < 0 or v > 100):
             raise ValueError('Discount must be between 0 and 100')
+        return v
+
+    @validator('transaction_type')
+    def validate_transaction_type(cls, v):
+        if v not in ['contado', 'credito']:
+            raise ValueError('Transaction type must be "contado" or "credito"')
+        return v
+
+    @validator('iva_percentage')
+    def validate_iva_percentage(cls, v):
+        if v is not None and v not in [0, 8, 16]:
+            raise ValueError('IVA percentage must be 0%%, 8%%, or 16%%')
         return v
 
     class Config:
@@ -383,6 +414,14 @@ class InvoiceUpdate(BaseModel):
     notes: Optional[str] = None
     payment_terms: Optional[str] = None
 
+    # ✅ VENEZUELA: Información fiscal
+    transaction_type: Optional[str] = None
+    payment_method: Optional[str] = None
+    credit_days: Optional[int] = None
+    iva_percentage: Optional[float] = None
+    customer_phone: Optional[str] = None
+    customer_address: Optional[str] = None
+
     class Config:
         from_attributes = True
 
@@ -392,12 +431,32 @@ class Invoice(BaseModel):
     customer_id: int
     warehouse_id: int
     invoice_number: str
+    control_number: Optional[str] = None  # ✅ VENEZUELA
     date: date
     total_amount: float
     status: str
     discount: float
     notes: Optional[str] = None
-    items: List[InvoiceItem] = []  # ✅ CAMBIO: Agregar = []
+
+    # ✅ VENEZUELA: Información fiscal
+    transaction_type: Optional[str] = "contado"
+    payment_method: Optional[str] = None
+    credit_days: Optional[int] = 0
+    iva_percentage: Optional[float] = 16.0
+    iva_amount: Optional[float] = 0.0
+    taxable_base: Optional[float] = 0.0
+    exempt_amount: Optional[float] = 0.0
+    iva_retention: Optional[float] = 0.0
+    iva_retention_percentage: Optional[float] = 0.0
+    islr_retention: Optional[float] = 0.0
+    islr_retention_percentage: Optional[float] = 0.0
+    stamp_tax: Optional[float] = 0.0
+    subtotal: Optional[float] = 0.0
+    total_with_taxes: Optional[float] = 0.0
+    customer_phone: Optional[str] = None
+    customer_address: Optional[str] = None
+
+    items: List[InvoiceItem] = []
 
     class Config:
         from_attributes = True

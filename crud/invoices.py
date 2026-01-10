@@ -11,6 +11,7 @@ from typing import List, Optional
 import models
 import schemas
 from .base import verify_company_ownership, paginate_query
+from . import venezuela_tax  # ✅ VENEZUELA: Funciones de cálculo de impuestos
 import traceback
 
 # ================= FUNCIONES LEGACY (MANTENER COMPATIBILIDAD) =================
@@ -123,19 +124,30 @@ def create_invoice_for_company(
     # Generar número de factura
     invoice_number = f"{company.invoice_prefix}-{company.next_invoice_number:06d}"
 
+    # ✅ VENEZUELA: Generar número de control
+    control_number = f"{company.invoice_prefix}-{company.next_control_number:08d}"
+
     try:
-        # Crear factura
+        # Crear factura con campos para Venezuela
         invoice = models.Invoice(
             company_id=company_id,
             customer_id=getattr(invoice_data, 'customer_id', None),
             warehouse_id=getattr(invoice_data, 'warehouse_id', None),
             invoice_number=invoice_number,
+            control_number=control_number,  # ✅ VENEZUELA
             status=getattr(invoice_data, 'status', 'factura'),
             discount=getattr(invoice_data, 'discount', 0),
             total_amount=0,
             date=getattr(invoice_data, 'date', datetime.utcnow().date()),
             due_date=getattr(invoice_data, 'due_date', None),
-            notes=getattr(invoice_data, 'notes', None)
+            notes=getattr(invoice_data, 'notes', None),
+            # ✅ VENEZUELA: Información fiscal
+            transaction_type=getattr(invoice_data, 'transaction_type', 'contado'),
+            payment_method=getattr(invoice_data, 'payment_method', 'efectivo'),
+            credit_days=getattr(invoice_data, 'credit_days', 0),
+            iva_percentage=getattr(invoice_data, 'iva_percentage', 16.0),
+            customer_phone=getattr(invoice_data, 'customer_phone', None),
+            customer_address=getattr(invoice_data, 'customer_address', None)
         )
 
         db.add(invoice)
@@ -178,13 +190,25 @@ def create_invoice_for_company(
                 unit_price = getattr(item_data, 'price_per_unit', product.price)
                 line_total = unit_price * item_data.quantity
 
-                # Crear item de factura
+                # ✅ VENEZUELA: Calcular impuestos del item
+                tax_rate = getattr(item_data, 'tax_rate', invoice.iva_percentage)
+                is_exempt = getattr(item_data, 'is_exempt', False)
+                tax_amount = 0.0
+
+                if not is_exempt and tax_rate > 0:
+                    tax_amount = venezuela_tax.calculate_iva(line_total, tax_rate)
+
+                # Crear item de factura con impuestos
                 invoice_item = models.InvoiceItem(
                     invoice_id=invoice.id,
                     product_id=product.id,
                     quantity=item_data.quantity,
                     price_per_unit=unit_price,
-                    total_price=line_total
+                    total_price=line_total,
+                    # ✅ VENEZUELA: Información fiscal del item
+                    tax_rate=tax_rate,
+                    tax_amount=tax_amount,
+                    is_exempt=is_exempt
                 )
 
                 db.add(invoice_item)
@@ -232,19 +256,52 @@ def create_invoice_for_company(
                             invoice_id=invoice.id
                         )
                         db.add(movement)
-        
-        # Aplicar descuento
-        if invoice.discount > 0:
-            discount_amount = (total_amount * invoice.discount) / 100
-            total_amount -= discount_amount
-        
-        # Actualizar totales
-        invoice.total_amount = total_amount
+
+        # ✅ VENEZUELA: Calcular totales con impuestos
+        # Preparar datos para cálculo
+        items_data = []
+        for item_data in invoice_data.items:
+            product = db.query(models.Product).filter(
+                models.Product.id == item_data.product_id
+            ).first()
+            unit_price = getattr(item_data, 'price_per_unit', product.price)
+            line_total = unit_price * item_data.quantity
+
+            items_data.append({
+                'price': unit_price,
+                'quantity': item_data.quantity,
+                'tax_rate': getattr(item_data, 'tax_rate', invoice.iva_percentage),
+                'is_exempt': getattr(item_data, 'is_exempt', False)
+            })
+
+        # Calcular todos los impuestos usando la función auxiliar
+        tax_calculations = venezuela_tax.calculate_invoice_totals(
+            items=items_data,
+            discount=invoice.discount,
+            iva_percentage=invoice.iva_percentage,
+            company=company
+        )
+
+        # Actualizar totales de la factura
+        invoice.subtotal = tax_calculations['subtotal']
+        invoice.taxable_base = tax_calculations['taxable_base']
+        invoice.exempt_amount = tax_calculations['exempt_amount']
+        invoice.iva_amount = tax_calculations['iva_amount']
+        invoice.iva_retention = tax_calculations['iva_retention']
+        invoice.iva_retention_percentage = tax_calculations['iva_retention_percentage']
+        invoice.islr_retention = tax_calculations['islr_retention']
+        invoice.islr_retention_percentage = tax_calculations['islr_retention_percentage']
+        invoice.stamp_tax = tax_calculations['stamp_tax']
+        invoice.total_with_taxes = tax_calculations['total_with_taxes']
+        invoice.total_amount = tax_calculations['total_with_taxes']
+
+        # Actualizar contadores de empresa
         company.next_invoice_number += 1
-        
+        company.next_control_number += 1  # ✅ VENEZUELA: Actualizar número de control
+
         db.commit()
         db.refresh(invoice)
-        
+
         return invoice
         
     except Exception as e:

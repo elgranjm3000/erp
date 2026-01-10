@@ -1,0 +1,1437 @@
+{
+	"info": {
+		"_postman_id": "erp-api-collection",
+		"name": "ERP API v2.0.0",
+		"description": "Colección completa de la API del Sistema ERP Multiempresa",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "erp-system"
+	},
+	"item": [
+		{
+			"name": "🔐 Auth & Companies",
+			"item": [
+				{
+					"name": "Registrar Compañía",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/auth/register-company",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "auth", "register-company"]
+						},
+						"description": "Registro público de compañía con usuario admin",
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"tax_id\": \"12345678901\",\n    \"company_name\": \"Mi Empresa S.A.\",\n    \"trade_name\": \"Mi Empresa\",\n    \"email\": \"admin@miempresa.com\",\n    \"phone\": \"+1234567890\",\n    \"address\": \"Calle Principal 123\",\n    \"city\": \"Ciudad\",\n    \"country\": \"País\",\n    \"admin_username\": \"admin\",\n    \"admin_email\": \"admin@miempresa.com\",\n    \"admin_password\": \"SecurePassword123!\"\n}"
+						}
+					}
+				},
+				{
+					"name": "Verificar Tax ID",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/auth/check-company-tax-id/:tax_id",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "auth", "check-company-tax-id", ":tax_id"],
+							"variable": [
+								{
+									"key": "tax_id",
+									"value": "12345678901"
+								}
+							]
+						},
+						"description": "Verificar si un RUC/Tax ID ya está registrado"
+					}
+				},
+				{
+					"name": "Verificar Username",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/auth/check-username/:username",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "auth", "check-username", ":username"],
+							"variable": [
+								{
+									"key": "username",
+									"value": "admin"
+								}
+							]
+						},
+						"description": "Verificar si un username ya está registrado"
+					}
+				},
+				{
+					"name": "Login",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/auth/login",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "auth", "login"]
+						},
+						"description": "Iniciar sesión y obtener token",
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"username\": \"admin\",\n    \"password\": \"SecurePassword123!\"\n}"
+						}
+					}
+				},
+				{
+					"name": "Get My Company",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/companies/me",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "companies", "me"]
+						},
+						"description": "Obtener información de mi empresa"
+					}
+				}
+			]
+		},
+		{
+			"name": "👥 Usuarios",
+			"item": [
+				{
+					"name": "Listar Usuarios",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/users",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "users"]
+						},
+						"description": "Listar todos los usuarios de mi empresa"
+					}
+				},
+				{
+					"name": "Crear Usuario",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/users",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "users"]
+						},
+						"description": "Crear nuevo usuario en mi empresa",
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"username\": \"nuevo_usuario\",\n    \"email\": \"usuario@empresa.com\",\n    \"full_name\": \"Nombre Completo\",\n    \"role\": \"user\",\n    \"password\": \"Password123!\"\n}"
+						}
+					}
+				},
+				{
+					"name": "Actualizar Usuario",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/users/:user_id",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "users", ":user_id"],
+							"variable": [
+								{
+									"key": "user_id",
+									"value": "1"
+								}
+							]
+						},
+						"description": "Actualizar usuario de mi empresa",
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"full_name\": \"Nombre Actualizado\",\n    \"role\": \"manager\"\n}"
+						}
+					}
+				},
+				{
+					"name": "Desactivar Usuario",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/users/:user_id",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "users", ":user_id"],
+							"variable": [
+								{
+									"key": "user_id",
+									"value": "1"
+								}
+							]
+						},
+						"description": "Desactivar usuario de mi empresa"
+					}
+				}
+			]
+		},
+		{
+			"name": "🏷️ Categorías",
+			"item": [
+				{
+					"name": "Listar Categorías",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/categories",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "categories"]
+						},
+						"description": "Listar todas las categorías de mi empresa"
+					}
+				},
+				{
+					"name": "Obtener Categoría",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/categories/:category_id",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "categories", ":category_id"],
+							"variable": [
+								{
+									"key": "category_id",
+									"value": "1"
+								}
+							]
+						},
+						"description": "Obtener una categoría específica de mi empresa"
+					}
+				},
+				{
+					"name": "Crear Categoría",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/categories",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "categories"]
+						},
+						"description": "Crear nueva categoría en mi empresa",
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"name\": \"Electrónica\",\n    \"description\": \"Productos electrónicos y accesorios\"\n}"
+						}
+					}
+				},
+				{
+					"name": "Actualizar Categoría",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/categories/:category_id",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "categories", ":category_id"],
+							"variable": [
+								{
+									"key": "category_id",
+									"value": "1"
+								}
+							]
+						},
+						"description": "Actualizar categoría de mi empresa",
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"name\": \"Electrónica Actualizada\",\n    \"description\": \"Nueva descripción\"\n}"
+						}
+					}
+				},
+				{
+					"name": "Eliminar Categoría",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/categories/:category_id",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "categories", ":category_id"],
+							"variable": [
+								{
+									"key": "category_id",
+									"value": "1"
+								}
+							]
+						},
+						"description": "Eliminar categoría de mi empresa (requiere rol manager)"
+					}
+				},
+				{
+					"name": "Productos de Categoría",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/categories/:category_id/products",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "categories", ":category_id", "products"],
+							"variable": [
+								{
+									"key": "category_id",
+									"value": "1"
+								}
+							]
+						},
+						"description": "Obtener productos de una categoría específica"
+					}
+				},
+				{
+					"name": "Estadísticas Categorías",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/categories/stats/summary",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "categories", "stats", "summary"]
+						},
+						"description": "Resumen estadístico de categorías de mi empresa"
+					}
+				}
+			]
+		},
+		{
+			"name": "📦 Productos",
+			"item": [
+				{
+					"name": "Listar Productos",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/products",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "products"]
+						},
+						"description": "Listar todos los productos de mi empresa"
+					}
+				},
+				{
+					"name": "Buscar Productos",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/products/search?q=:query",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "products", "search"],
+							"query": [
+								{
+									"key": "q",
+									"value": "laptop"
+								}
+							]
+						},
+						"description": "Buscar productos por nombre o SKU"
+					}
+				},
+				{
+					"name": "Productos Low Stock",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/products/low-stock?threshold=10",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "products", "low-stock"],
+							"query": [
+								{
+									"key": "threshold",
+									"value": "10"
+								}
+							]
+						},
+						"description": "Obtener productos con stock bajo"
+					}
+				},
+				{
+					"name": "Estadísticas Productos",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/products/stats/summary",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "products", "stats", "summary"]
+						},
+						"description": "Resumen estadístico de productos"
+					}
+				},
+				{
+					"name": "Obtener Producto",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/products/:product_id",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "products", ":product_id"],
+							"variable": [
+								{
+									"key": "product_id",
+									"value": "1"
+								}
+							]
+						},
+						"description": "Obtener un producto específico"
+					}
+				},
+				{
+					"name": "Crear Producto",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/products",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "products"]
+						},
+						"description": "Crear nuevo producto",
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"name\": \"Laptop HP\",\n    \"sku\": \"SKU001\",\n    \"description\": \"Laptop HP Pavilion\",\n    \"price\": 899.99,\n    \"quantity\": 50,\n    \"category_id\": 1\n}"
+						}
+					}
+				},
+				{
+					"name": "Actualizar Producto",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/products/:product_id",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "products", ":product_id"],
+							"variable": [
+								{
+									"key": "product_id",
+									"value": "1"
+								}
+							]
+						},
+						"description": "Actualizar producto",
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"name\": \"Laptop HP Actualizada\",\n    \"price\": 999.99,\n    \"quantity\": 45\n}"
+						}
+					}
+				},
+				{
+					"name": "Eliminar Producto",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/products/:product_id",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "products", ":product_id"],
+							"variable": [
+								{
+									"key": "product_id",
+									"value": "1"
+								}
+							]
+						},
+						"description": "Eliminar producto (requiere rol manager)"
+					}
+				},
+				{
+					"name": "Movimientos de Inventario del Producto",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/products/:product_id/inventory_movements",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "products", ":product_id", "inventory_movements"],
+							"variable": [
+								{
+									"key": "product_id",
+									"value": "1"
+								}
+							]
+						},
+						"description": "Obtener movimientos de inventario de un producto"
+					}
+				}
+			]
+		},
+		{
+			"name": "🏭 Almacenes",
+			"item": [
+				{
+					"name": "Listar Almacenes",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/warehouses",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "warehouses"]
+						},
+						"description": "Listar todos los almacenes de mi empresa"
+					}
+				},
+				{
+					"name": "Obtener Almacén",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/warehouses/:warehouse_id",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "warehouses", ":warehouse_id"],
+							"variable": [
+								{
+									"key": "warehouse_id",
+									"value": "1"
+								}
+							]
+						},
+						"description": "Obtener un almacén específico"
+					}
+				},
+				{
+					"name": "Crear Almacén",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/warehouses",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "warehouses"]
+						},
+						"description": "Crear nuevo almacén (requiere rol manager)",
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"name\": \"Almacén Principal\",\n    \"location\": \"Av. Principal 123\",\n    \"description\": \"Almacén central de distribución\"\n}"
+						}
+					}
+				},
+				{
+					"name": "Actualizar Almacén",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/warehouses/:warehouse_id",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "warehouses", ":warehouse_id"],
+							"variable": [
+								{
+									"key": "warehouse_id",
+									"value": "1"
+								}
+							]
+						},
+						"description": "Actualizar almacén (requiere rol manager)",
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"name\": \"Almacén Principal Actualizado\",\n    \"location\": \"Nueva Dirección 456\"\n}"
+						}
+					}
+				},
+				{
+					"name": "Eliminar Almacén",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/warehouses/:warehouse_id",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "warehouses", ":warehouse_id"],
+							"variable": [
+								{
+									"key": "warehouse_id",
+									"value": "1"
+								}
+							]
+						},
+						"description": "Eliminar almacén (requiere rol admin)"
+					}
+				},
+				{
+					"name": "Productos del Almacén",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/warehouses/:warehouse_id/products",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "warehouses", ":warehouse_id", "products"],
+							"variable": [
+								{
+									"key": "warehouse_id",
+									"value": "1"
+								}
+							]
+						},
+						"description": "Obtener productos de un almacén específico"
+					}
+				},
+				{
+					"name": "Low Stock en Almacén",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/warehouses/:warehouse_id/low-stock?threshold=10",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "warehouses", ":warehouse_id", "low-stock"],
+							"variable": [
+								{
+									"key": "warehouse_id",
+									"value": "1"
+								}
+							],
+							"query": [
+								{
+									"key": "threshold",
+									"value": "10"
+								}
+							]
+						},
+						"description": "Obtener productos con stock bajo en un almacén"
+					}
+				},
+				{
+					"name": "Movimientos del Almacén",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/warehouses/:warehouse_id/inventory_movements",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "warehouses", ":warehouse_id", "inventory_movements"],
+							"variable": [
+								{
+									"key": "warehouse_id",
+									"value": "1"
+								}
+							]
+						},
+						"description": "Obtener movimientos de inventario de un almacén"
+					}
+				},
+				{
+					"name": "Estadísticas Almacenes",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/warehouses/stats/summary",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "warehouses", "stats", "summary"]
+						},
+						"description": "Resumen estadístico de almacenes"
+					}
+				}
+			]
+		},
+		{
+			"name": "👥 Clientes",
+			"item": [
+				{
+					"name": "Listar Clientes",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/customers",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "customers"]
+						},
+						"description": "Listar todos los clientes de mi empresa"
+					}
+				},
+				{
+					"name": "Buscar Clientes",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/customers/search?q=:query",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "customers", "search"],
+							"query": [
+								{
+									"key": "q",
+									"value": "Juan"
+								}
+							]
+						},
+						"description": "Buscar clientes por nombre o email"
+					}
+				},
+				{
+					"name": "Crear Cliente",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/customers",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "customers"]
+						},
+						"description": "Crear nuevo cliente",
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"name\": \"Juan Pérez\",\n    \"email\": \"juan@example.com\",\n    \"phone\": \"+1234567890\",\n    \"address\": \"Calle 123\",\n    \"tax_id\": \"12345678901\"\n}"
+						}
+					}
+				},
+				{
+					"name": "Actualizar Cliente",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/customers/:customer_id",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "customers", ":customer_id"],
+							"variable": [
+								{
+									"key": "customer_id",
+									"value": "1"
+								}
+							]
+						},
+						"description": "Actualizar cliente",
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"name\": \"Juan Pérez Actualizado\",\n    \"phone\": \"+9876543210\"\n}"
+						}
+					}
+				},
+				{
+					"name": "Eliminar Cliente",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/customers/:customer_id",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "customers", ":customer_id"],
+							"variable": [
+								{
+									"key": "customer_id",
+									"value": "1"
+								}
+							]
+						},
+						"description": "Eliminar cliente"
+					}
+				}
+			]
+		},
+		{
+			"name": "📦 Proveedores",
+			"item": [
+				{
+					"name": "Listar Proveedores",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/suppliers",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "suppliers"]
+						},
+						"description": "Listar todos los proveedores de mi empresa"
+					}
+				},
+				{
+					"name": "Buscar Proveedores",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/suppliers/search?q=:query",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "suppliers", "search"],
+							"query": [
+								{
+									"key": "q",
+									"value": "Tech"
+								}
+							]
+						},
+						"description": "Buscar proveedores por nombre o email"
+					}
+				},
+				{
+					"name": "Crear Proveedor",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/suppliers",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "suppliers"]
+						},
+						"description": "Crear nuevo proveedor",
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"name\": \"Tech Supplier SA\",\n    \"email\": \"contact@techsupplier.com\",\n    \"phone\": \"+1234567890\",\n    \"address\": \"Tech Street 123\",\n    \"tax_id\": \"98765432101\"\n}"
+						}
+					}
+				},
+				{
+					"name": "Actualizar Proveedor",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/suppliers/:supplier_id",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "suppliers", ":supplier_id"],
+							"variable": [
+								{
+									"key": "supplier_id",
+									"value": "1"
+								}
+							]
+						},
+						"description": "Actualizar proveedor",
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"name\": \"Tech Supplier SA Actualizado\",\n    \"phone\": \"+9876543210\"\n}"
+						}
+					}
+				},
+				{
+					"name": "Eliminar Proveedor",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/suppliers/:supplier_id",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "suppliers", ":supplier_id"],
+							"variable": [
+								{
+									"key": "supplier_id",
+									"value": "1"
+								}
+							]
+						},
+						"description": "Eliminar proveedor"
+					}
+				}
+			]
+		},
+		{
+			"name": "📄 Facturas",
+			"item": [
+				{
+					"name": "Listar Facturas",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/invoices",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "invoices"]
+						},
+						"description": "Listar todas las facturas de mi empresa"
+					}
+				},
+				{
+					"name": "Crear Factura",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/invoices",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "invoices"]
+						},
+						"description": "Crear nueva factura",
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"customer_id\": 1,\n    \"items\": [\n        {\n            \"product_id\": 1,\n            \"quantity\": 2,\n            \"unit_price\": 899.99\n        }\n    ],\n    \"payment_method\": \"cash\",\n    \"status\": \"factura\"\n}"
+						}
+					}
+				},
+				{
+					"name": "Ver Factura",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/invoices/:invoice_id",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "invoices", ":invoice_id"],
+							"variable": [
+								{
+									"key": "invoice_id",
+									"value": "1"
+								}
+							]
+						},
+						"description": "Obtener factura específica"
+					}
+				},
+				{
+					"name": "Actualizar Factura",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/invoices/:invoice_id",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "invoices", ":invoice_id"],
+							"variable": [
+								{
+									"key": "invoice_id",
+									"value": "1"
+								}
+							]
+						},
+						"description": "Actualizar factura",
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"payment_method\": \"transfer\",\n    \"status\": \"pagada\"\n}"
+						}
+					}
+				},
+				{
+					"name": "Eliminar Factura",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/invoices/:invoice_id",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "invoices", ":invoice_id"],
+							"variable": [
+								{
+									"key": "invoice_id",
+									"value": "1"
+								}
+							]
+						},
+						"description": "Eliminar factura"
+					}
+				}
+			]
+		},
+		{
+			"name": "🛒 Compras",
+			"item": [
+				{
+					"name": "Listar Compras",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/purchases",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "purchases"]
+						},
+						"description": "Listar todas las compras de mi empresa"
+					}
+				},
+				{
+					"name": "Crear Compra",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/purchases",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "purchases"]
+						},
+						"description": "Crear nueva compra",
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"supplier_id\": 1,\n    \"items\": [\n        {\n            \"product_id\": 1,\n            \"quantity\": 10,\n            \"unit_price\": 700.00\n        }\n    ],\n    \"payment_method\": \"transfer\",\n    \"status\": \"recibida\"\n}"
+						}
+					}
+				},
+				{
+					"name": "Ver Compra",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/purchases/:purchase_id",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "purchases", ":purchase_id"],
+							"variable": [
+								{
+									"key": "purchase_id",
+									"value": "1"
+								}
+							]
+						},
+						"description": "Obtener compra específica"
+					}
+				},
+				{
+					"name": "Actualizar Compra",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/purchases/:purchase_id",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "purchases", ":purchase_id"],
+							"variable": [
+								{
+									"key": "purchase_id",
+									"value": "1"
+								}
+							]
+						},
+						"description": "Actualizar compra",
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"status\": \"pagada\"\n}"
+						}
+					}
+				},
+				{
+					"name": "Eliminar Compra",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/purchases/:purchase_id",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "purchases", ":purchase_id"],
+							"variable": [
+								{
+									"key": "purchase_id",
+									"value": "1"
+								}
+							]
+						},
+						"description": "Eliminar compra"
+					}
+				}
+			]
+		},
+		{
+			"name": "🔄 Movimientos de Inventario",
+			"item": [
+				{
+					"name": "Listar Movimientos",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/movements",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "movements"]
+						},
+						"description": "Listar movimientos de inventario"
+					}
+				},
+				{
+					"name": "Crear Movimiento",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/movements",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "movements"]
+						},
+						"description": "Crear movimiento de inventario",
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"product_id\": 1,\n    \"quantity\": 5,\n    \"movement_type\": \"in\",\n    \"warehouse_id\": 1\n}"
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "📊 Estadísticas",
+			"item": [
+				{
+					"name": "Dashboard",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/companies/dashboard",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "companies", "dashboard"]
+						},
+						"description": "Obtener dashboard de mi empresa"
+					}
+				}
+			]
+		}
+	],
+	"variable": [
+		{
+			"key": "base_url",
+			"value": "http://localhost:8000",
+			"type": "string"
+		},
+		{
+			"key": "token",
+			"value": "",
+			"type": "string",
+			"description": "Token JWT obtenido al hacer login"
+		}
+	]
+}

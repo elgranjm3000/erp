@@ -17,16 +17,36 @@ class Company(Base):
     phone = Column(String(20))
     address = Column(String(300))
     logo_url = Column(String(255))
-    
+
     # Configuraciones específicas de la empresa
     currency = Column(String(3), default="USD")  # USD, VES, etc.
     timezone = Column(String(50), default="UTC")
     date_format = Column(String(20), default="YYYY-MM-DD")
-    
+
     # Configuraciones de facturación
     invoice_prefix = Column(String(10), default="INV")  # INV, FAC, etc.
     next_invoice_number = Column(Integer, default=1)
-    
+    next_control_number = Column(Integer, default=1)  # ✅ VENEZUELA: Número de control
+
+    # ✅ VENEZUELA: Información fiscal para SENIAT
+    fiscal_address = Column(String(300))  # Dirección fiscal exacta para facturas
+    taxpayer_type = Column(String(20), default='ordinario')  # 'contribuyente especial', 'ordinario'
+    seniat_certificate_number = Column(String(30))  # Certificado SENIAT
+    iva_retention_agent = Column(Boolean, default=False)  # Agente de retención IVA
+    islr_retention_agent = Column(Boolean, default=False)  # Agente de retención ISLR
+
+    # ✅ VENEZUELA: Información de contacto para facturas
+    invoice_contact_name = Column(String(100))
+    invoice_contact_phone = Column(String(20))
+    invoice_contact_email = Column(String(100))
+
+    # ✅ VENEZUELA: Tasas de retención (configurables por empresa)
+    iva_retention_rate_75 = Column(Float, default=75.0)  # Umbral para 75%
+    iva_retention_rate_100 = Column(Float, default=100.0)  # Umbral para 100%
+    islr_retention_rate_1 = Column(Float, default=1.0)  # Umbral para 1%
+    islr_retention_rate_2 = Column(Float, default=2.0)  # Umbral para 2%
+    islr_retention_rate_3 = Column(Float, default=3.0)  # Umbral para 3%
+
     # Metadatos
     created_at = Column(DateTime, default=func.now())
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
@@ -37,7 +57,7 @@ class Company(Base):
     warehouses = relationship("Warehouse", back_populates="company")
     products = relationship("Product", back_populates="company")
     customers = relationship("Customer", back_populates="company")
-    suppliers = relationship("Supplier", back_populates="company")  # ✅ CORREGIDO
+    suppliers = relationship("Supplier", back_populates="company")
     invoices = relationship("Invoice", back_populates="company")
     purchases = relationship("Purchase", back_populates="company")
 
@@ -64,23 +84,57 @@ class Invoice(Base):
     id = Column(Integer, primary_key=True, index=True)
     company_id = Column(Integer, ForeignKey('companies.id'), nullable=False)
     customer_id = Column(Integer, ForeignKey('customers.id'))
-    warehouse_id = Column(Integer, ForeignKey('warehouses.id'))  # ✅ CORREGIDO: FK explícita
-    
+    warehouse_id = Column(Integer, ForeignKey('warehouses.id'))
+
     # Numeración por empresa
-    invoice_number = Column(String(20), index=True)  # ✅ AGREGADO
-    
+    invoice_number = Column(String(20), index=True)
+    control_number = Column(String(20), index=True)  # ✅ VENEZUELA: Número de control SENIAT
+
     date = Column(DateTime, default=func.now())
     due_date = Column(DateTime, default=func.now())
     total_amount = Column(Float)
     status = Column(String(60))  # 'presupuesto', 'factura', 'nota_credito', 'devolucion'
     discount = Column(Float, default=0.0)
-    notes = Column(Text)  # ✅ AGREGADO: Notas adicionales
+    notes = Column(Text)
+
+    # ✅ VENEZUELA: Información fiscal
+    transaction_type = Column(String(20), default='contado')  # 'contado', 'credito'
+    payment_method = Column(String(30))  # 'efectivo', 'transferencia', 'debito', 'credito', 'zelle', 'pago_movil'
+    credit_days = Column(Integer, default=0)
+
+    # ✅ VENEZUELA: Impuestos (IVA)
+    iva_percentage = Column(Float, default=16.0)  # 16%, 8%, 0% (exento)
+    iva_amount = Column(Float, default=0.0)
+    taxable_base = Column(Float, default=0.0)  # Base imponible
+    exempt_amount = Column(Float, default=0.0)  # Monto exento de IVA
+
+    # ✅ VENEZUELA: Retenciones
+    iva_retention = Column(Float, default=0.0)  # 75% o 100% del IVA
+    iva_retention_percentage = Column(Float, default=0.0)  # 75% o 100%
+    islr_retention = Column(Float, default=0.0)  # Retención ISLR (1%, 2%, 3%)
+    islr_retention_percentage = Column(Float, default=0.0)
+
+    # ✅ VENEZUELA: Timado Fiscal
+    stamp_tax = Column(Float, default=0.0)  # 1% del total
+
+    # ✅ VENEZUELA: Totales desglosados
+    subtotal = Column(Float, default=0.0)  # Antes de impuestos
+    total_with_taxes = Column(Float, default=0.0)  # Incluyendo todos los impuestos
+
+    # ✅ VENEZUELA: Datos adicionales para notas de crédito/débito
+    reference_invoice_number = Column(String(30))  # Factura original (para NC/ND)
+    reference_control_number = Column(String(20))  # Número de control original
+    refund_reason = Column(Text)  # Motivo de la NC/ND
+
+    # Información de contacto del cliente en la factura
+    customer_phone = Column(String(20))
+    customer_address = Column(String(300))
 
     # Relaciones
     customer = relationship("Customer", back_populates="invoices")
     invoice_items = relationship("InvoiceItem", back_populates="invoice")
     company = relationship("Company", back_populates="invoices")
-    warehouse = relationship("Warehouse")  # ✅ AGREGADO
+    warehouse = relationship("Warehouse")
 
 # Detalle de la Factura
 class InvoiceItem(Base):
@@ -92,6 +146,11 @@ class InvoiceItem(Base):
     quantity = Column(Integer)
     price_per_unit = Column(Float)
     total_price = Column(Float)
+
+    # ✅ VENEZUELA: Información fiscal por item
+    tax_rate = Column(Float, default=16.0)  # Tasa impositiva (16%, 8%, 0%)
+    tax_amount = Column(Float, default=0.0)  # IVA por item
+    is_exempt = Column(Boolean, default=False)  # Si el item está exento de IVA
 
     invoice = relationship("Invoice", back_populates="invoice_items")
     product = relationship("Product")
