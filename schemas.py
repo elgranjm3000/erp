@@ -70,8 +70,10 @@ class CompanyBase(BaseModel):
     phone: Optional[str] = None
     address: Optional[str] = None
     currency: str = "USD"
+    exchange_rate: Optional[float] = None  # ✅ VENEZUELA: Tasa de cambio USD->VES
     timezone: str = "UTC"
     invoice_prefix: str = "INV"
+    require_customer_tax_id_threshold: Optional[float] = None  # ✅ VENEZUELA: Monto mínimo para requerir RIF
 
 class CompanyCreate(CompanyBase):
     # Datos del primer usuario admin
@@ -93,8 +95,14 @@ class CompanyUpdate(BaseModel):
     address: Optional[str] = None
     logo_url: Optional[str] = None
     currency: Optional[str] = None
+    exchange_rate: Optional[float] = None  # ✅ VENEZUELA: Tasa de cambio USD->VES
     timezone: Optional[str] = None
     invoice_prefix: Optional[str] = None
+    require_customer_tax_id_threshold: Optional[float] = None  # ✅ VENEZUELA: Monto mínimo para requerir RIF
+
+    # ✅ VENEZUELA: Agentes de retención
+    iva_retention_agent: Optional[bool] = None
+    islr_retention_agent: Optional[bool] = None
 
 class Company(CompanyBase):
     id: int
@@ -102,6 +110,10 @@ class Company(CompanyBase):
     next_invoice_number: int
     created_at: datetime
     is_active: bool
+
+    # ✅ VENEZUELA: Agentes de retención
+    iva_retention_agent: bool = False
+    islr_retention_agent: bool = False
 
     class Config:
         from_attributes = True
@@ -290,7 +302,16 @@ class CustomerBase(BaseModel):
     email: Optional[EmailStr] = None
     phone: Optional[str] = None
     address: Optional[str] = None
-    tax_id: Optional[str] = None
+    tax_id: Optional[str] = None  # ✅ VENEZUELA: RIF/CI del cliente
+
+    @validator('tax_id')
+    def validate_tax_id(cls, v):
+        if v and len(v) > 0:
+            # Solo validar longitud máxima, mínima puede ser 1 para compatibilidad
+            if len(v) > 20:
+                raise ValueError('Tax ID must be maximum 20 characters')
+            return v.upper() if v else v
+        return v
 
 class CustomerCreate(CustomerBase):
     pass

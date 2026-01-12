@@ -94,13 +94,14 @@ def create_invoice_for_company(
     company_id: int
 ):
     """Crear factura para empresa específica"""
-    
+
     # Verificar que la empresa exista
     company = db.query(models.Company).filter(models.Company.id == company_id).first()
     if not company:
         raise HTTPException(status_code=404, detail="Company not found")
-    
+
     # Verificar que el cliente pertenezca a la empresa
+    customer = None
     if hasattr(invoice_data, 'customer_id') and invoice_data.customer_id:
         customer = verify_company_ownership(
             db=db,
@@ -109,6 +110,28 @@ def create_invoice_for_company(
             company_id=company_id,
             error_message="Customer not found in your company"
         )
+
+        # ✅ VENEZUELA: Validar que el cliente tenga RIF si el monto lo requiere
+        # Calcular subtotal aproximado para validar
+        estimated_total = 0
+        if hasattr(invoice_data, 'items') and invoice_data.items:
+            for item in invoice_data.items:
+                product = db.query(models.Product).filter(
+                    models.Product.id == item.product_id,
+                    models.Product.company_id == company_id
+                ).first()
+                if product:
+                    unit_price = getattr(item, 'price_per_unit', product.price)
+                    estimated_total += unit_price * item.quantity
+
+        # Verificar si se supera el umbral para requerir RIF
+        threshold = company.require_customer_tax_id_threshold or 0.0
+        if estimated_total > threshold and not customer.tax_id:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Customer tax ID (RIF/CI) is required for invoices over {threshold} {company.currency}. "
+                       f"Please update the customer's tax information before creating this invoice."
+            )
 
     # Verificar que el almacén pertenezca a la empresa (si se especifica)
     warehouse = None
@@ -275,11 +298,13 @@ def create_invoice_for_company(
             })
 
         # Calcular todos los impuestos usando la función auxiliar
+        # ✅ VENEZUELA: Pasar moneda de la empresa para conversión correcta de umbrales
         tax_calculations = venezuela_tax.calculate_invoice_totals(
             items=items_data,
             discount=invoice.discount,
             iva_percentage=invoice.iva_percentage,
-            company=company
+            company=company,
+            currency=company.currency  # USD o VES
         )
 
         # Actualizar totales de la factura

@@ -20,6 +20,7 @@ class Company(Base):
 
     # Configuraciones específicas de la empresa
     currency = Column(String(3), default="USD")  # USD, VES, etc.
+    exchange_rate = Column(Float, default=1.0)  # Tasa de cambio USD->VES
     timezone = Column(String(50), default="UTC")
     date_format = Column(String(20), default="YYYY-MM-DD")
 
@@ -46,6 +47,9 @@ class Company(Base):
     islr_retention_rate_1 = Column(Float, default=1.0)  # Umbral para 1%
     islr_retention_rate_2 = Column(Float, default=2.0)  # Umbral para 2%
     islr_retention_rate_3 = Column(Float, default=3.0)  # Umbral para 3%
+
+    # ✅ VENEZUELA: Monto mínimo para requerir RIF del cliente (en moneda local)
+    require_customer_tax_id_threshold = Column(Float, default=0.0)  # 0 = siempre requerir
 
     # Metadatos
     created_at = Column(DateTime, default=func.now())
