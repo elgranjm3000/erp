@@ -557,6 +557,8 @@ class PurchaseItemCreate(BaseModel):
     product_id: int
     quantity: int
     price_per_unit: float
+    tax_rate: Optional[float] = 16.0  # ✅ VENEZUELA: Tasa de IVA
+    is_exempt: Optional[bool] = False  # ✅ VENEZUELA: Si está exento de IVA
 
     @validator('quantity')
     def validate_quantity(cls, v):
@@ -570,11 +572,20 @@ class PurchaseItemCreate(BaseModel):
             raise ValueError('Price must be greater than 0')
         return v
 
+    @validator('tax_rate')
+    def validate_tax_rate(cls, v):
+        if v is not None and v not in [0, 8, 16]:
+            raise ValueError('Tax rate must be 0%%, 8%%, or 16%%')
+        return v
+
 class PurchaseItem(BaseModel):
     product_id: int
     quantity: int
     price_per_unit: float
     total_price: float
+    tax_rate: Optional[float] = 16.0  # ✅ VENEZUELA
+    tax_amount: Optional[float] = 0.0  # ✅ VENEZUELA
+    is_exempt: Optional[bool] = False  # ✅ VENEZUELA
 
     class Config:
         from_attributes = True
@@ -586,11 +597,41 @@ class PurchaseCreate(BaseModel):
     status: Optional[str] = "pending"
     items: List[PurchaseItemCreate]
 
+    # ✅ VENEZUELA: Información fiscal
+    transaction_type: Optional[str] = "contado"  # 'contado', 'credito'
+    payment_method: Optional[str] = "efectivo"  # 'efectivo', 'transferencia', etc.
+    credit_days: Optional[int] = 0
+    iva_percentage: Optional[float] = 16.0  # 16%, 8%, 0%
+    invoice_number: Optional[str] = None  # ✅ Número de factura del proveedor
+    supplier_phone: Optional[str] = None
+    supplier_address: Optional[str] = None
+
+    @validator('transaction_type')
+    def validate_transaction_type(cls, v):
+        if v not in ['contado', 'credito']:
+            raise ValueError('Transaction type must be "contado" or "credito"')
+        return v
+
+    @validator('iva_percentage')
+    def validate_iva_percentage(cls, v):
+        if v is not None and v not in [0, 8, 16]:
+            raise ValueError('IVA percentage must be 0%%, 8%%, or 16%%')
+        return v
+
 class PurchaseUpdate(BaseModel):
     supplier_id: Optional[int] = None
     warehouse_id: Optional[int] = None
     status: Optional[str] = None
     items: Optional[List[PurchaseItemCreate]] = None
+
+    # ✅ VENEZUELA: Información fiscal
+    transaction_type: Optional[str] = None
+    payment_method: Optional[str] = None
+    credit_days: Optional[int] = None
+    iva_percentage: Optional[float] = None
+    invoice_number: Optional[str] = None
+    supplier_phone: Optional[str] = None
+    supplier_address: Optional[str] = None
 
 class Purchase(BaseModel):
     id: int
@@ -598,10 +639,30 @@ class Purchase(BaseModel):
     supplier_id: int
     warehouse_id: int
     purchase_number: str
+    invoice_number: Optional[str] = None  # ✅ VENEZUELA
+    control_number: Optional[str] = None  # ✅ VENEZUELA
     date: datetime
     total_amount: float
     status: str
     items: List[PurchaseItem]
+
+    # ✅ VENEZUELA: Información fiscal
+    transaction_type: Optional[str] = "contado"
+    payment_method: Optional[str] = None
+    credit_days: Optional[int] = 0
+    iva_percentage: Optional[float] = 16.0
+    iva_amount: Optional[float] = 0.0
+    taxable_base: Optional[float] = 0.0
+    exempt_amount: Optional[float] = 0.0
+    iva_retention: Optional[float] = 0.0
+    iva_retention_percentage: Optional[float] = 0.0
+    islr_retention: Optional[float] = 0.0
+    islr_retention_percentage: Optional[float] = 0.0
+    stamp_tax: Optional[float] = 0.0
+    subtotal: Optional[float] = 0.0
+    total_with_taxes: Optional[float] = 0.0
+    supplier_phone: Optional[str] = None
+    supplier_address: Optional[str] = None
 
     class Config:
         from_attributes = True
@@ -612,6 +673,8 @@ class PurchaseResponse(BaseModel):
     supplier_id: int
     warehouse_id: int
     purchase_number: str
+    invoice_number: Optional[str] = None  # ✅ VENEZUELA
+    control_number: Optional[str] = None  # ✅ VENEZUELA
     date: datetime
     status: str
     total_amount: float

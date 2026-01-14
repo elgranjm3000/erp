@@ -11,6 +11,8 @@ from typing import List, Optional
 import models
 import schemas
 from .base import verify_company_ownership, paginate_query
+from . import venezuela_tax  # ✅ VENEZUELA: Funciones de cálculo de impuestos
+import traceback
 
 # ================= FUNCIONES LEGACY (MANTENER COMPATIBILIDAD) =================
 
@@ -21,18 +23,19 @@ def create_purchase(db: Session, purchase_data: schemas.Purchase):
 # ================= FUNCIONES MULTIEMPRESA =================
 
 def create_purchase_for_company(
-    db: Session, 
-    purchase_data: schemas.PurchaseCreate, 
+    db: Session,
+    purchase_data: schemas.PurchaseCreate,
     company_id: int
 ):
-    """Crear compra para empresa específica"""
-    
+    """Crear compra para empresa específica con cálculos de impuestos SENIAT"""
+
     # Verificar que la empresa exista
     company = db.query(models.Company).filter(models.Company.id == company_id).first()
     if not company:
         raise HTTPException(status_code=404, detail="Company not found")
-    
+
     # Verificar que el proveedor pertenezca a la empresa
+    supplier = None
     if hasattr(purchase_data, 'supplier_id') and purchase_data.supplier_id:
         supplier = verify_company_ownership(
             db=db,
@@ -42,7 +45,7 @@ def create_purchase_for_company(
             error_message="Supplier not found in your company"
         )
 
-    # Verificar que el almacén pertenezca a la empresa (si se especifica)
+    # Verificar que el almacén pertenezca a la empresa
     warehouse = None
     if hasattr(purchase_data, 'warehouse_id') and purchase_data.warehouse_id:
         warehouse = verify_company_ownership(
@@ -53,22 +56,34 @@ def create_purchase_for_company(
             error_message="Warehouse not found in your company"
         )
 
-    # Generar número de compra
+    # Generar número de compra y número de control
     purchase_count = db.query(models.Purchase).filter(
         models.Purchase.company_id == company_id
     ).count()
     purchase_number = f"PUR-{purchase_count + 1:06d}"
+    control_number = f"PUR-{purchase_count + 1:08d}"  # ✅ VENEZUELA: Número de control
 
     try:
-        # Crear compra
+        # Crear compra con campos para Venezuela
         purchase = models.Purchase(
             company_id=company_id,
             supplier_id=purchase_data.supplier_id,
             warehouse_id=purchase_data.warehouse_id,
             purchase_number=purchase_number,
+            invoice_number=getattr(purchase_data, 'invoice_number', None),  # ✅ Factura del proveedor
+            control_number=control_number,  # ✅ VENEZUELA
             date=getattr(purchase_data, 'date', datetime.utcnow()),
+            due_date=getattr(purchase_data, 'due_date', datetime.utcnow()),
             status=getattr(purchase_data, 'status', 'pending'),
-            total_amount=0
+            discount=getattr(purchase_data, 'discount', 0),
+            notes=getattr(purchase_data, 'notes', None),
+            # ✅ VENEZUELA: Información fiscal
+            transaction_type=getattr(purchase_data, 'transaction_type', 'contado'),
+            payment_method=getattr(purchase_data, 'payment_method', 'efectivo'),
+            credit_days=getattr(purchase_data, 'credit_days', 0),
+            iva_percentage=getattr(purchase_data, 'iva_percentage', 16.0),
+            supplier_phone=getattr(purchase_data, 'supplier_phone', None),
+            supplier_address=getattr(purchase_data, 'supplier_address', None)
         )
 
         db.add(purchase)
@@ -92,13 +107,25 @@ def create_purchase_for_company(
                 price_per_unit = getattr(item_data, 'price_per_unit', item_data.price_per_unit)
                 line_total = price_per_unit * item_data.quantity
 
-                # Crear item de compra
+                # ✅ VENEZUELA: Calcular impuestos del item
+                tax_rate = getattr(item_data, 'tax_rate', purchase.iva_percentage)
+                is_exempt = getattr(item_data, 'is_exempt', False)
+                tax_amount = 0.0
+
+                if not is_exempt and tax_rate > 0:
+                    tax_amount = venezuela_tax.calculate_iva(line_total, tax_rate)
+
+                # Crear item de compra con impuestos
                 purchase_item = models.PurchaseItem(
                     purchase_id=purchase.id,
                     product_id=product.id,
                     quantity=item_data.quantity,
                     price_per_unit=price_per_unit,
-                    total_price=line_total
+                    total_price=line_total,
+                    # ✅ VENEZUELA: Información fiscal del item
+                    tax_rate=tax_rate,
+                    tax_amount=tax_amount,
+                    is_exempt=is_exempt
                 )
 
                 db.add(purchase_item)
@@ -111,7 +138,7 @@ def create_purchase_for_company(
 
                     # Actualizar costo del producto si es diferente
                     if price_per_unit != product.price:
-                        product.price = price_per_unit  # O usar promedio ponderado
+                        product.price = price_per_unit
 
                     # Actualizar stock en almacén específico si se especifica
                     if warehouse:
@@ -130,7 +157,8 @@ def create_purchase_for_company(
                                 movement_type='purchase',
                                 quantity=item_data.quantity,
                                 timestamp=datetime.utcnow(),
-                                description=f"Purchase - {purchase_number}"
+                                description=f"Purchase - {purchase_number}",
+                                invoice_id=purchase.id
                             )
                             db.add(movement)
                         else:
@@ -149,7 +177,8 @@ def create_purchase_for_company(
                                 movement_type='purchase',
                                 quantity=item_data.quantity,
                                 timestamp=datetime.utcnow(),
-                                description=f"Purchase - {purchase_number}"
+                                description=f"Purchase - {purchase_number}",
+                                invoice_id=purchase.id
                             )
                             db.add(movement)
                     else:
@@ -159,26 +188,67 @@ def create_purchase_for_company(
                             movement_type='purchase',
                             quantity=item_data.quantity,
                             timestamp=datetime.utcnow(),
-                            description=f"Purchase - {purchase_number}"
+                            description=f"Purchase - {purchase_number}",
+                            invoice_id=purchase.id
                         )
                         db.add(movement)
-        
-        # Aplicar descuento si existe
-        if hasattr(purchase_data, 'discount') and purchase_data.discount > 0:
-            discount_amount = (total_amount * purchase_data.discount) / 100
-            total_amount -= discount_amount
-        
-        # Actualizar total
-        purchase.total_amount = total_amount
-        
+
+        # ✅ VENEZUELA: Calcular totales con impuestos
+        # Preparar datos para cálculo
+        items_data = []
+        for item_data in purchase_data.items:
+            product = db.query(models.Product).filter(
+                models.Product.id == item_data.product_id
+            ).first()
+            price_per_unit = getattr(item_data, 'price_per_unit', product.price)
+            line_total = price_per_unit * item_data.quantity
+
+            items_data.append({
+                'price': price_per_unit,
+                'quantity': item_data.quantity,
+                'tax_rate': getattr(item_data, 'tax_rate', purchase.iva_percentage),
+                'is_exempt': getattr(item_data, 'is_exempt', False)
+            })
+
+        # Calcular todos los impuestos usando la función auxiliar
+        tax_calculations = venezuela_tax.calculate_invoice_totals(
+            items=items_data,
+            discount=purchase.discount,
+            iva_percentage=purchase.iva_percentage,
+            company=company,
+            currency=company.currency
+        )
+
+        # Actualizar totales de la compra
+        purchase.subtotal = tax_calculations['subtotal']
+        purchase.taxable_base = tax_calculations['taxable_base']
+        purchase.exempt_amount = tax_calculations['exempt_amount']
+        purchase.iva_amount = tax_calculations['iva_amount']
+        purchase.iva_retention = tax_calculations['iva_retention']
+        purchase.iva_retention_percentage = tax_calculations['iva_retention_percentage']
+        purchase.islr_retention = tax_calculations['islr_retention']
+        purchase.islr_retention_percentage = tax_calculations['islr_retention_percentage']
+        purchase.stamp_tax = tax_calculations['stamp_tax']
+        purchase.total_with_taxes = tax_calculations['total_with_taxes']
+        purchase.total_amount = tax_calculations['total_with_taxes']
+
         db.commit()
         db.refresh(purchase)
-        
+
         return purchase
-        
+
     except Exception as e:
         db.rollback()
-        raise HTTPException(status_code=400, detail=f"Error creating purchase: {str(e)}")
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "error": "Error creating purchase",
+                "message": str(e),
+                "type": type(e).__name__,
+                "args": e.args,
+                "traceback": traceback.format_exc()
+            }
+        )
 
 def get_purchases_by_company(
     db: Session, 

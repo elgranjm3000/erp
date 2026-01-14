@@ -264,13 +264,51 @@ class Purchase(Base):
     company_id = Column(Integer, ForeignKey('companies.id'), nullable=False)
     supplier_id = Column(Integer, ForeignKey("suppliers.id"), nullable=False)
     warehouse_id = Column(Integer, ForeignKey("warehouses.id"), nullable=False)
-    
+
     # Numeración por empresa
     purchase_number = Column(String(20), index=True)  # ✅ AGREGADO
-    
+    invoice_number = Column(String(30), index=True)  # ✅ Número de factura del proveedor
+    control_number = Column(String(20), index=True)  # ✅ VENEZUELA: Número de control
+
     date = Column(DateTime, default=func.now())
+    due_date = Column(DateTime, default=func.now())
     total_amount = Column(Float, default=0.0)
-    status = Column(String(60), default="pending")
+    status = Column(String(60), default="pending")  # 'pending', 'received', 'cancelled'
+    discount = Column(Float, default=0.0)
+    notes = Column(Text)
+
+    # ✅ VENEZUELA: Información fiscal
+    transaction_type = Column(String(20), default='contado')  # 'contado', 'credito'
+    payment_method = Column(String(30))  # 'efectivo', 'transferencia', 'debito', 'credito', 'zelle', 'pago_movil'
+    credit_days = Column(Integer, default=0)
+
+    # ✅ VENEZUELA: Impuestos (IVA)
+    iva_percentage = Column(Float, default=16.0)  # 16%, 8%, 0% (exento)
+    iva_amount = Column(Float, default=0.0)
+    taxable_base = Column(Float, default=0.0)  # Base imponible
+    exempt_amount = Column(Float, default=0.0)  # Monto exento de IVA
+
+    # ✅ VENEZUELA: Retenciones
+    iva_retention = Column(Float, default=0.0)  # 75% o 100% del IVA
+    iva_retention_percentage = Column(Float, default=0.0)  # 75% o 100%
+    islr_retention = Column(Float, default=0.0)  # Retención ISLR (1%, 2%, 3%)
+    islr_retention_percentage = Column(Float, default=0.0)
+
+    # ✅ VENEZUELA: Timado Fiscal
+    stamp_tax = Column(Float, default=0.0)  # 1% del total
+
+    # ✅ VENEZUELA: Totales desglosados
+    subtotal = Column(Float, default=0.0)  # Antes de impuestos
+    total_with_taxes = Column(Float, default=0.0)  # Incluyendo todos los impuestos
+
+    # ✅ VENEZUELA: Datos adicionales para notas de crédito/débito
+    reference_purchase_number = Column(String(30))  # Compra original (para NC/ND)
+    reference_control_number = Column(String(20))  # Número de control original
+    refund_reason = Column(Text)  # Motivo de la NC/ND
+
+    # Información de contacto del proveedor
+    supplier_phone = Column(String(20))
+    supplier_address = Column(String(300))
 
     # Relaciones
     company = relationship("Company", back_populates="purchases")
@@ -287,6 +325,11 @@ class PurchaseItem(Base):
     quantity = Column(Integer, nullable=False)
     price_per_unit = Column(Float, nullable=False)
     total_price = Column(Float, nullable=False)
+
+    # ✅ VENEZUELA: Información fiscal por item
+    tax_rate = Column(Float, default=16.0)  # Tasa impositiva (16%, 8%, 0%)
+    tax_amount = Column(Float, default=0.0)  # IVA por item
+    is_exempt = Column(Boolean, default=False)  # Si el item está exento de IVA
 
     purchase = relationship("Purchase", back_populates="purchase_items")
     product = relationship("Product", back_populates="purchase_items")
