@@ -739,6 +739,7 @@ class CreditMovementCreate(BaseModel):
     invoice_id: int
     amount: float
     movement_type: str  # 'nota_credito', 'devolucion'
+    reason: Optional[str] = None  # ✅ Motivo de la nota de crédito
 
     @validator('movement_type')
     def validate_movement_type(cls, v):
@@ -756,6 +757,44 @@ class CreditMovementCreate(BaseModel):
 class CreditMovement(CreditMovementCreate):
     id: int
     date: datetime
+
+    class Config:
+        from_attributes = True
+
+# ================= ESQUEMAS DE CRÉDITO DE COMPRAS =================
+
+class PurchaseCreditMovementCreate(BaseModel):
+    purchase_id: int
+    amount: float
+    movement_type: str  # 'nota_credito', 'devolucion'
+    reason: str  # Motivo de la nota de crédito (obligatorio para compras)
+    reference_purchase_number: Optional[str] = None  # ✅ Referencia a compra original
+    reference_control_number: Optional[str] = None  # ✅ Número de control original
+    warehouse_id: Optional[int] = None  # Almacén para revertir stock
+
+    @validator('movement_type')
+    def validate_movement_type(cls, v):
+        valid_types = ['nota_credito', 'devolucion']
+        if v not in valid_types:
+            raise ValueError(f'Movement type must be one of: {valid_types}')
+        return v
+
+    @validator('amount')
+    def validate_amount(cls, v):
+        if v <= 0:
+            raise ValueError('Amount must be greater than 0')
+        return v
+
+    @validator('reason')
+    def validate_reason(cls, v):
+        if not v or not v.strip():
+            raise ValueError('Reason is required for purchase credit notes')
+        return v.strip()
+
+class PurchaseCreditMovement(PurchaseCreditMovementCreate):
+    id: int
+    date: datetime
+    stock_reverted: bool = False
 
     class Config:
         from_attributes = True

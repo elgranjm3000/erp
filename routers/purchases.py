@@ -128,3 +128,36 @@ def get_pending_purchases(
         company_id=current_user.company_id,
         status="pending"
     )
+
+# ================= NOTAS DE CRÉDITO DE COMPRAS =================
+
+@router.post("/purchases/{purchase_id}/credit-movements", response_model=schemas.PurchaseCreditMovement)
+def create_purchase_credit_movement(
+    purchase_id: int,
+    movement_data: schemas.PurchaseCreditMovementCreate,
+    current_user: User = Depends(check_permission(required_role="manager")),
+    db: Session = Depends(get_db)
+):
+    """Crear nota de crédito de compra (devolución a proveedor)"""
+    return crud.create_purchase_credit_movement_for_company(
+        db=db,
+        purchase_id=purchase_id,
+        movement_data=movement_data,
+        company_id=current_user.company_id
+    )
+
+@router.get("/purchases/credit-movements", response_model=List[schemas.PurchaseCreditMovement])
+def list_purchase_credit_movements(
+    skip: int = 0,
+    limit: int = 100,
+    current_user: User = Depends(verify_token),
+    db: Session = Depends(get_db)
+):
+    """Listar notas de crédito de compras de mi empresa"""
+    return crud.get_purchase_credit_movements_by_company(
+        db=db,
+        company_id=current_user.company_id,
+        skip=skip,
+        limit=limit
+    )
+

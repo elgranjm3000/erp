@@ -161,7 +161,7 @@ class InvoiceItem(Base):
     invoice = relationship("Invoice", back_populates="invoice_items")
     product = relationship("Product")
 
-# Movimiento de Crédito (para notas de crédito y devoluciones)
+# Movimiento de Crédito (para notas de crédito y devoluciones de VENTAS)
 class CreditMovement(Base):
     __tablename__ = 'credit_movements'
 
@@ -169,9 +169,32 @@ class CreditMovement(Base):
     invoice_id = Column(Integer, ForeignKey('invoices.id'))
     amount = Column(Float)
     movement_type = Column(String(60))  # 'nota_credito' o 'devolucion'
+    reason = Column(Text)  # ✅ Motivo de la nota de crédito
     date = Column(DateTime, default=func.now())
 
     invoice = relationship("Invoice")
+
+# ✅ VENEZUELA: Movimiento de Crédito para COMPRAS (Notas de crédito de proveedores)
+class PurchaseCreditMovement(Base):
+    __tablename__ = 'purchase_credit_movements'
+
+    id = Column(Integer, primary_key=True, index=True)
+    purchase_id = Column(Integer, ForeignKey('purchases.id'))
+    amount = Column(Float)
+    movement_type = Column(String(60))  # 'nota_credito' o 'devolucion'
+    reason = Column(Text)  # Motivo de la nota de crédito
+    date = Column(DateTime, default=func.now())
+
+    # ✅ Referencia a la compra original
+    reference_purchase_number = Column(String(30))  # Número de compra original
+    reference_control_number = Column(String(20))  # Número de control original
+
+    # ✅ Información de reversión de stock
+    stock_reverted = Column(Boolean, default=False)  # Si se revirtió el stock
+    warehouse_id = Column(Integer, ForeignKey('warehouses.id'), nullable=True)  # Almacén afectado
+
+    purchase = relationship("Purchase")
+    warehouse = relationship("Warehouse")
 
 # Categoría de producto
 class Category(Base):

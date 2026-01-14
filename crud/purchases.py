@@ -821,3 +821,121 @@ def get_purchase_history_by_product(
     ).order_by(
         models.Purchase.date.desc()
     ).limit(limit).all()
+
+# ================= FUNCIONES PARA NOTAS DE CRÉDITO DE COMPRAS =================
+
+def create_purchase_credit_movement_for_company(
+    db: Session,
+    purchase_id: int,
+    movement_data: schemas.PurchaseCreditMovementCreate,
+    company_id: int
+):
+    """Crear nota de crédito de compra con reversión de stock"""
+    
+    # Verificar que la compra pertenezca a la empresa
+    purchase = verify_company_ownership(
+        db=db,
+        model_class=models.Purchase,
+        item_id=purchase_id,
+        company_id=company_id,
+        error_message="Purchase not found in your company"
+    )
+    
+    if purchase.status != "received":
+        raise HTTPException(
+            status_code=400,
+            detail="Can only create credit notes for received purchases"
+        )
+    
+    try:
+        # Crear movimiento de crédito de compra
+        credit_movement = models.PurchaseCreditMovement(
+            purchase_id=purchase_id,
+            amount=movement_data.amount,
+            movement_type=movement_data.movement_type,
+            reason=movement_data.reason,
+            reference_purchase_number=getattr(movement_data, "reference_purchase_number", None) or purchase.purchase_number,
+            reference_control_number=getattr(movement_data, "reference_control_number", None) or purchase.control_number,
+            warehouse_id=getattr(movement_data, "warehouse_id", None) or purchase.warehouse_id,
+            stock_reverted=False
+        )
+        
+        db.add(credit_movement)
+        
+        # Si es devolución, restaurar stock
+        if movement_data.movement_type == "devolucion":
+            for item in purchase.purchase_items:
+                product = db.query(models.Product).filter(
+                    models.Product.id == item.product_id
+                ).first()
+                
+                if product:
+                    # Calcular cantidad a devolver proporcionalmente
+                    return_ratio = movement_data.amount / purchase.total_amount
+                    return_quantity = int(item.quantity * return_ratio)
+                    
+                    if return_quantity > 0:
+                        # Revertir stock global
+                        product.quantity -= return_quantity
+                        
+                        # Revertir stock en almacén
+                        warehouse_id = getattr(movement_data, "warehouse_id", None) or purchase.warehouse_id
+                        if warehouse_id:
+                            warehouse_product = db.query(models.WarehouseProduct).filter(
+                                models.WarehouseProduct.warehouse_id == warehouse_id,
+                                models.WarehouseProduct.product_id == product.id
+                            ).first()
+                            
+                            if warehouse_product:
+                                warehouse_product.stock -= return_quantity
+                        
+                        # Crear movimiento de inventario
+                        movement = models.InventoryMovement(
+                            product_id=product.id,
+                            warehouse_id=warehouse_id,
+                            movement_type="purchase_return",
+                            quantity=return_quantity,
+                            timestamp=datetime.utcnow(),
+                            description=f"Purchase Return - Credit Note #{credit_movement.id}",
+                            invoice_id=purchase_id
+                        )
+                        db.add(movement)
+            
+            # Marcar que se revirtió el stock
+            credit_movement.stock_reverted = True
+        
+        db.commit()
+        db.refresh(credit_movement)
+        return credit_movement
+        
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=400,
+            detail=f"Error creating purchase credit movement: {str(e)}"
+        )
+
+def get_purchase_credit_movements_by_company(
+    db: Session,
+    company_id: int,
+    skip: int = 0,
+    limit: int = 100
+):
+    """Obtener notas de crédito de compras de una empresa"""
+    
+    # Obtener IDs de compras de la empresa
+    purchase_ids = db.query(models.Purchase.id).filter(
+        models.Purchase.company_id == company_id
+    ).subquery()
+    
+    # Obtener movimientos de crédito de esas compras
+    query = db.query(models.PurchaseCreditMovement).filter(
+        models.PurchaseCreditMovement.purchase_id.in_(purchase_ids)
+    )
+    
+    return paginate_query(
+        query.order_by(models.PurchaseCreditMovement.date.desc()),
+        skip=skip,
+        limit=limit
+    ).all()
+
