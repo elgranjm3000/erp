@@ -83,6 +83,43 @@ Sistema de planificación de recursos empresariales (ERP) desarrollado con FastA
 - **JWT**: Autenticación basada en tokens
 - **bcrypt**: Cifrado de contraseñas
 
+## 📝 Changelog y Mejoras Recientes
+
+### ✅ Enero 2026 - Mejora en Detalle de Facturas
+**Corrección importante**: Los items de las facturas ahora incluyen información completa del producto.
+
+**Antes:**
+```json
+{
+  "id": 1,
+  "product_id": 6,
+  "quantity": 1,
+  "price_per_unit": 300.0,
+  "total_price": 300.0
+}
+```
+
+**Ahora:**
+```json
+{
+  "id": 1,
+  "product_id": 6,
+  "product_name": "lismarys",           ✅ NUEVO
+  "product_description": "aaa",         ✅ NUEVO
+  "product_sku": "PROD-865126-458",     ✅ NUEVO
+  "quantity": 1,
+  "price_per_unit": 300.0,
+  "total_price": 300.0,
+  "tax_rate": 16.0,
+  "tax_amount": 48.0,
+  "is_exempt": false
+}
+```
+
+**Archivos modificados:**
+- `schemas.py` - Agregados campos `product_name`, `product_description`, `product_sku` a `InvoiceItem`
+- `crud/invoices.py` - Actualizadas funciones `view_invoice_by_company` y `get_invoices_by_company` para incluir detalles de productos
+
 ## 📋 Requisitos
 
 - Python 3.8+
@@ -263,11 +300,22 @@ El sistema utiliza JWT para la autenticación. Para acceder a endpoints protegid
 
 ### Facturas (Ventas)
 - `POST /api/v1/invoices/` - Crear factura (actualiza stock en almacén)
-- `GET /api/v1/invoices` - Listar facturas
-- `GET /api/v1/invoices/{id}` - Ver factura
+- `GET /api/v1/invoices` - Listar facturas con detalles completos de productos
+- `GET /api/v1/invoices/{id}` - Ver factura con detalles completos de productos
 - `PUT /api/v1/invoices/{id}` - **Editar factura (revierte y aplica stock)**
 - `DELETE /api/v1/invoices/{id}` - Eliminar factura
 - `PUT /api/v1/invoices/{id}/status` - Cambiar estado (presupuesto → factura)
+
+**✅ Items de factura incluyen:**
+- `product_name` - Nombre del producto
+- `product_description` - Descripción del producto
+- `product_sku` - SKU del producto
+- `quantity` - Cantidad
+- `price_per_unit` - Precio unitario
+- `total_price` - Total
+- `tax_rate` - Tasa impositiva
+- `tax_amount` - Monto de IVA
+- `is_exempt` - Indicador de exención
 
 ### Compras
 - `POST /api/v1/purchases` - Registrar compra (actualiza stock en almacén)

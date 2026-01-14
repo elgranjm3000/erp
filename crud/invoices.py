@@ -343,14 +343,70 @@ def create_invoice_for_company(
         )
 
 def view_invoice_by_company(db: Session, invoice_id: int, company_id: int):
-    """Ver factura específica de empresa"""
-    return verify_company_ownership(
+    """Ver factura específica de empresa con detalles de productos"""
+    invoice = verify_company_ownership(
         db=db,
         model_class=models.Invoice,
         item_id=invoice_id,
         company_id=company_id,
         error_message="Invoice not found in your company"
     )
+
+    # Convertir a diccionario y agregar detalles de productos
+    invoice_dict = {
+        "id": invoice.id,
+        "company_id": invoice.company_id,
+        "customer_id": invoice.customer_id,
+        "warehouse_id": invoice.warehouse_id,
+        "invoice_number": invoice.invoice_number,
+        "control_number": invoice.control_number,
+        "date": invoice.date,
+        "total_amount": invoice.total_amount,
+        "status": invoice.status,
+        "discount": invoice.discount,
+        "notes": invoice.notes,
+        "transaction_type": invoice.transaction_type,
+        "payment_method": invoice.payment_method,
+        "credit_days": invoice.credit_days,
+        "iva_percentage": invoice.iva_percentage,
+        "iva_amount": invoice.iva_amount,
+        "taxable_base": invoice.taxable_base,
+        "exempt_amount": invoice.exempt_amount,
+        "iva_retention": invoice.iva_retention,
+        "iva_retention_percentage": invoice.iva_retention_percentage,
+        "islr_retention": invoice.islr_retention,
+        "islr_retention_percentage": invoice.islr_retention_percentage,
+        "stamp_tax": invoice.stamp_tax,
+        "subtotal": invoice.subtotal,
+        "total_with_taxes": invoice.total_with_taxes,
+        "customer_phone": invoice.customer_phone,
+        "customer_address": invoice.customer_address,
+        "items": []
+    }
+
+    # Agregar items con detalles de productos
+    for item in invoice.invoice_items:
+        # Obtener detalles del producto
+        product = db.query(models.Product).filter(
+            models.Product.id == item.product_id
+        ).first()
+
+        item_dict = {
+            "id": item.id,
+            "product_id": item.product_id,
+            "quantity": item.quantity,
+            "price_per_unit": item.price_per_unit,
+            "total_price": item.total_price,
+            "tax_rate": item.tax_rate,
+            "tax_amount": item.tax_amount,
+            "is_exempt": item.is_exempt,
+            "product_name": product.name if product else None,
+            "product_description": product.description if product else None,
+            "product_sku": product.sku if product else None
+        }
+        invoice_dict["items"].append(item_dict)
+
+    return invoice_dict
 
 def edit_invoice_for_company(
     db: Session,
@@ -536,23 +592,82 @@ def delete_invoice_for_company(db: Session, invoice_id: int, company_id: int):
     return {"message": "Invoice deleted successfully"}
 
 def get_invoices_by_company(
-    db: Session, 
-    company_id: int, 
-    skip: int = 0, 
-    limit: int = 100, 
+    db: Session,
+    company_id: int,
+    skip: int = 0,
+    limit: int = 100,
     status: Optional[str] = None
 ):
-    """Obtener facturas de una empresa"""
+    """Obtener facturas de una empresa con detalles de productos"""
     query = db.query(models.Invoice).filter(models.Invoice.company_id == company_id)
-    
+
     if status:
         query = query.filter(models.Invoice.status == status)
-    
-    return paginate_query(
+
+    invoices = paginate_query(
         query.order_by(models.Invoice.date.desc()),
         skip=skip,
         limit=limit
     ).all()
+
+    # Construir respuesta con detalles de productos
+    result = []
+    for invoice in invoices:
+        invoice_dict = {
+            "id": invoice.id,
+            "company_id": invoice.company_id,
+            "customer_id": invoice.customer_id,
+            "warehouse_id": invoice.warehouse_id,
+            "invoice_number": invoice.invoice_number,
+            "control_number": invoice.control_number,
+            "date": invoice.date,
+            "total_amount": invoice.total_amount,
+            "status": invoice.status,
+            "discount": invoice.discount,
+            "notes": invoice.notes,
+            "transaction_type": invoice.transaction_type,
+            "payment_method": invoice.payment_method,
+            "credit_days": invoice.credit_days,
+            "iva_percentage": invoice.iva_percentage,
+            "iva_amount": invoice.iva_amount,
+            "taxable_base": invoice.taxable_base,
+            "exempt_amount": invoice.exempt_amount,
+            "iva_retention": invoice.iva_retention,
+            "iva_retention_percentage": invoice.iva_retention_percentage,
+            "islr_retention": invoice.islr_retention,
+            "islr_retention_percentage": invoice.islr_retention_percentage,
+            "stamp_tax": invoice.stamp_tax,
+            "subtotal": invoice.subtotal,
+            "total_with_taxes": invoice.total_with_taxes,
+            "customer_phone": invoice.customer_phone,
+            "customer_address": invoice.customer_address,
+            "items": []
+        }
+
+        # Agregar items con detalles de productos
+        for item in invoice.invoice_items:
+            product = db.query(models.Product).filter(
+                models.Product.id == item.product_id
+            ).first()
+
+            item_dict = {
+                "id": item.id,
+                "product_id": item.product_id,
+                "quantity": item.quantity,
+                "price_per_unit": item.price_per_unit,
+                "total_price": item.total_price,
+                "tax_rate": item.tax_rate,
+                "tax_amount": item.tax_amount,
+                "is_exempt": item.is_exempt,
+                "product_name": product.name if product else None,
+                "product_description": product.description if product else None,
+                "product_sku": product.sku if product else None
+            }
+            invoice_dict["items"].append(item_dict)
+
+        result.append(invoice_dict)
+
+    return result
 
 def confirm_budget_for_company(db: Session, budget_id: int, company_id: int):
     """Confirmar presupuesto como factura en empresa específica"""

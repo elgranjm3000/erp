@@ -211,10 +211,30 @@ class ProductUpdate(BaseModel):
     class Config:
         from_attributes = True
 
+class WarehouseStockInfo(BaseModel):
+    """Información de stock en un almacén"""
+    warehouse_id: int
+    warehouse_name: str
+    warehouse_location: str
+    stock: int
+
+    class Config:
+        from_attributes = True
+
 class Product(ProductBase):
     id: int
     company_id: int
     category: Optional["CategoryBase"] = None
+
+    class Config:
+        from_attributes = True
+
+class ProductWithWarehouses(ProductBase):
+    """Producto con información de stock en todos los almacenes"""
+    id: int
+    company_id: int
+    category: Optional["CategoryBase"] = None
+    warehouses: List[WarehouseStockInfo] = []
 
     class Config:
         from_attributes = True
@@ -295,6 +315,19 @@ class WarehouseProduct(BaseModel):
     class Config:
         from_attributes = True
 
+class WarehouseProductWithDetails(BaseModel):
+    """Esquema para productos de almacén con información completa del producto"""
+    product_id: int
+    warehouse_id: int
+    stock: int
+    product_name: str
+    product_description: Optional[str] = None
+    product_sku: Optional[str] = None
+    product_price: int
+
+    class Config:
+        from_attributes = True
+
 # ================= ESQUEMAS DE CLIENTES =================
 
 class CustomerBase(BaseModel):
@@ -303,6 +336,8 @@ class CustomerBase(BaseModel):
     phone: Optional[str] = None
     address: Optional[str] = None
     tax_id: Optional[str] = None  # ✅ VENEZUELA: RIF/CI del cliente
+    latitude: Optional[float] = None  # ✅ UBICACIÓN: Latitud para mapa
+    longitude: Optional[float] = None  # ✅ UBICACIÓN: Longitud para mapa
 
     @validator('tax_id')
     def validate_tax_id(cls, v):
@@ -311,6 +346,20 @@ class CustomerBase(BaseModel):
             if len(v) > 20:
                 raise ValueError('Tax ID must be maximum 20 characters')
             return v.upper() if v else v
+        return v
+
+    @validator('latitude')
+    def validate_latitude(cls, v):
+        if v is not None:
+            if not -90 <= v <= 90:
+                raise ValueError('Latitude must be between -90 and 90')
+        return v
+
+    @validator('longitude')
+    def validate_longitude(cls, v):
+        if v is not None:
+            if not -180 <= v <= 180:
+                raise ValueError('Longitude must be between -180 and 180')
         return v
 
 class CustomerCreate(CustomerBase):
@@ -322,6 +371,22 @@ class CustomerUpdate(BaseModel):
     phone: Optional[str] = None
     address: Optional[str] = None
     tax_id: Optional[str] = None
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
+
+    @validator('latitude')
+    def validate_latitude(cls, v):
+        if v is not None:
+            if not -90 <= v <= 90:
+                raise ValueError('Latitude must be between -90 and 90')
+        return v
+
+    @validator('longitude')
+    def validate_longitude(cls, v):
+        if v is not None:
+            if not -180 <= v <= 180:
+                raise ValueError('Longitude must be between -180 and 180')
+        return v
 
 class Customer(CustomerBase):
     id: int
@@ -383,6 +448,10 @@ class InvoiceItem(BaseModel):
     tax_rate: Optional[float] = 16.0  # ✅ VENEZUELA
     tax_amount: Optional[float] = 0.0  # ✅ VENEZUELA
     is_exempt: Optional[bool] = False  # ✅ VENEZUELA
+    # ✅ INCLUDE PRODUCT DETAILS
+    product_name: Optional[str] = None
+    product_description: Optional[str] = None
+    product_sku: Optional[str] = None
 
     class Config:
         from_attributes = True
