@@ -8,7 +8,7 @@ from fastapi.responses import JSONResponse
 
 
 # Importar solo los routers que existen
-from routers import products, movements, warehouses, users, warehousesproducts, invoices, purchases, customers, suppliers, categories, companies, reports
+from routers import products, movements, warehouses, users, warehousesproducts, invoices, purchases, customers, suppliers, categories, companies, reports, currencies, units
 
 # Importar dependencias
 import database
@@ -90,6 +90,8 @@ app.include_router(movements.router, prefix="/api/v1", tags=["🔄 Movimientos"]
 app.include_router(warehouses.router, prefix="/api/v1", tags=["🏭 Almacenes"])
 app.include_router(warehousesproducts.router, prefix="/api/v1", tags=["📦 Stock"])
 app.include_router(reports.router, prefix="/api/v1", tags=["📊 Reportes SENIAT"])
+app.include_router(currencies.router, prefix="/api/v1", tags=["💰 Monedas"])
+app.include_router(units.router, prefix="/api/v1", tags=["📏 Unidades"])
 
 # ================= ENDPOINTS RAÍZ =================
 

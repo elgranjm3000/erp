@@ -64,6 +64,8 @@ class Company(Base):
     suppliers = relationship("Supplier", back_populates="company")
     invoices = relationship("Invoice", back_populates="company")
     purchases = relationship("Purchase", back_populates="company")
+    currencies = relationship("Currency")  # ✅ MONEDAS
+    units = relationship("Unit")  # ✅ UNIDADES DE MEDIDA
 
 # Cliente
 class Customer(Base):
@@ -356,6 +358,54 @@ class PurchaseItem(Base):
 
     purchase = relationship("Purchase", back_populates="purchase_items")
     product = relationship("Product", back_populates="purchase_items")
+
+# ✅ MONEDAS (Currency) - Soporte multi-moneda
+class Currency(Base):
+    __tablename__ = 'currencies'
+
+    id = Column(Integer, primary_key=True, index=True)
+    company_id = Column(Integer, ForeignKey('companies.id'), nullable=False)
+
+    code = Column(String(3), nullable=False, unique=True)  # ISO 4217: USD, VES, EUR, etc.
+    name = Column(String(50), nullable=False)  # Dólar estadounidense, Bolívar, Euro
+    symbol = Column(String(5), nullable=False)  # $, Bs, €
+    exchange_rate = Column(Float, default=1.0)  # Tasa de cambio respecto a moneda base
+    is_base_currency = Column(Boolean, default=False)  # Si es la moneda base de la empresa
+    is_active = Column(Boolean, default=True)
+
+    # Metadatos
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+
+    # Relaciones
+    company = relationship("Company")
+
+    def __repr__(self):
+        return f"<Currency {self.code} - {self.name}>"
+
+
+# ✅ UNIDADES DE MEDIDA (Unit) - Para productos
+class Unit(Base):
+    __tablename__ = 'units'
+
+    id = Column(Integer, primary_key=True, index=True)
+    company_id = Column(Integer, ForeignKey('companies.id'), nullable=False)
+
+    name = Column(String(50), nullable=False)  # Kilogramo, Litro, Unidad
+    abbreviation = Column(String(10), nullable=False)  # KG, LTS, UND
+    description = Column(String(200))  # Descripción opcional
+
+    # Metadatos
+    created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+    is_active = Column(Boolean, default=True)
+
+    # Relaciones
+    company = relationship("Company")
+
+    def __repr__(self):
+        return f"<Unit {self.abbreviation} - {self.name}>"
+
 
 class User(Base):
     __tablename__ = 'users'

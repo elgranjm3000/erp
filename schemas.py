@@ -843,3 +843,71 @@ class SuccessResponse(BaseModel):
     success: bool = True
     message: str
     data: Optional[dict] = None
+
+# ================= ESQUEMAS DE MONEDAS =================
+
+class CurrencyCreate(BaseModel):
+    code: str  # ISO 4217: USD, VES, EUR
+    name: str  # Dólar estadounidense, Bolívar, Euro
+    symbol: str  # $, Bs, €
+    exchange_rate: float = 1.0
+    is_base_currency: bool = False
+
+    @validator("code")
+    def validate_code(cls, v):
+        if len(v) != 3:
+            raise ValueError("Currency code must be 3 characters (ISO 4217)")
+        return v.upper()
+
+    @validator("exchange_rate")
+    def validate_exchange_rate(cls, v):
+        if v <= 0:
+            raise ValueError("Exchange rate must be greater than 0")
+        return v
+
+class CurrencyUpdate(BaseModel):
+    name: Optional[str] = None
+    symbol: Optional[str] = None
+    exchange_rate: Optional[float] = None
+    is_base_currency: Optional[bool] = None
+    is_active: Optional[bool] = None
+
+class Currency(CurrencyCreate):
+    id: int
+    company_id: int
+    is_active: bool
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+# ================= ESQUEMAS DE UNIDADES DE MEDIDA =================
+
+class UnitCreate(BaseModel):
+    name: str  # Kilogramo, Litro, Unidad
+    abbreviation: str  # KG, LTS, UND
+    description: Optional[str] = None
+
+    @validator("abbreviation")
+    def validate_abbreviation(cls, v):
+        if not v or len(v) > 10:
+            raise ValueError("Abbreviation must be 1-10 characters")
+        return v.upper()
+
+class UnitUpdate(BaseModel):
+    name: Optional[str] = None
+    abbreviation: Optional[str] = None
+    description: Optional[str] = None
+    is_active: Optional[bool] = None
+
+class Unit(UnitCreate):
+    id: int
+    company_id: int
+    is_active: bool
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
