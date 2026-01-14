@@ -4,9 +4,13 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.orm import Session
 from contextlib import contextmanager
 import os
+from dotenv import load_dotenv
 
-# Configuración de la URL de conexión para MySQL
-DATABASE_URL = "mysql+mysqlconnector://root:tiger@localhost:3306/erp"
+# Cargar variables de entorno
+load_dotenv()
+
+# Configuración de la URL de conexión para MySQL desde variable de entorno
+DATABASE_URL = os.getenv("DATABASE_URL", "mysql+mysqlconnector://root:tiger@localhost:3306/erp")
 
 
 engine = create_engine(DATABASE_URL)

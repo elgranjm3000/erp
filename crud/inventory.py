@@ -517,6 +517,37 @@ def get_warehouse_products_by_warehouse(db: Session, warehouse_id: int):
         models.WarehouseProduct.warehouse_id == warehouse_id
     ).all()
 
+def get_warehouse_products_with_details(db: Session, warehouse_id: int):
+    """Obtener productos de un almacén con información completa del producto"""
+    results = db.query(
+        models.WarehouseProduct.product_id,
+        models.WarehouseProduct.warehouse_id,
+        models.WarehouseProduct.stock,
+        models.Product.name.label('product_name'),
+        models.Product.description.label('product_description'),
+        models.Product.sku.label('product_sku'),
+        models.Product.price.label('product_price')
+    ).join(
+        models.Product,
+        models.WarehouseProduct.product_id == models.Product.id
+    ).filter(
+        models.WarehouseProduct.warehouse_id == warehouse_id
+    ).all()
+
+    # Convertir resultados a diccionarios
+    return [
+        {
+            'product_id': row.product_id,
+            'warehouse_id': row.warehouse_id,
+            'stock': row.stock,
+            'product_name': row.product_name,
+            'product_description': row.product_description,
+            'product_sku': row.product_sku,
+            'product_price': row.product_price
+        }
+        for row in results
+    ]
+
 def get_low_stock_products_by_warehouse(
     db: Session,
     warehouse_id: int,

@@ -125,27 +125,27 @@ def get_warehouses_summary(
         company_id=current_user.company_id
     )
 
-@router.get("/warehouses/{warehouse_id}/products", response_model=List[schemas.WarehouseProduct])
+@router.get("/warehouses/{warehouse_id}/products", response_model=List[schemas.WarehouseProductWithDetails])
 def get_warehouse_products(
     warehouse_id: int,
     current_user: User = Depends(verify_token),
     db: Session = Depends(database.get_db)
 ):
-    """Obtener productos de un almacén específico"""
+    """Obtener productos de un almacén específico con información completa del producto"""
     # Verificar que el almacén pertenezca a la empresa
     warehouse = crud.get_warehouse_by_id_and_company(
         db=db,
         warehouse_id=warehouse_id,
         company_id=current_user.company_id
     )
-    
+
     if not warehouse:
         raise HTTPException(
-            status_code=404, 
+            status_code=404,
             detail="Warehouse not found in your company"
         )
-    
-    return crud.get_warehouse_products_by_warehouse(
+
+    return crud.get_warehouse_products_with_details(
         db=db,
         warehouse_id=warehouse_id
     )

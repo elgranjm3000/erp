@@ -8,31 +8,29 @@ from fastapi.responses import JSONResponse
 
 
 # Importar solo los routers que existen
-from routers import products, movements, warehouses, users, warehousesproducts, invoices, purchases, customers, suppliers, categories
+from routers import products, movements, warehouses, users, warehousesproducts, invoices, purchases, customers, suppliers, categories, companies
 
 # Importar dependencias
 import database
+import config
+
+# ================= CONFIGURACIÓN DE LOGGING =================
+
+# Configurar logging según variables de entorno
+log_level = getattr(logging, config.LOG_LEVEL.upper(), logging.INFO)
+logging.basicConfig(
+    level=log_level,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    filename=config.LOG_FILE if config.LOG_FILE else None
+)
+logger = logging.getLogger(__name__)
 
 # ================= VARIABLES DE ENTORNO =================
 
-ALLOWED_ORIGINS = [
-    "http://localhost:3001",
-    "http://localhost:8000",
-    "http://localhost:3000",      # Desarrollo local Next.js
-    "http://127.0.0.1:3000",
-    "http://localhost:8000",       # Si desde mismo servidor
-    "http://127.0.0.1:8000",
-    "http://localhost",
-    "http://127.0.0.1",
-    "http://192.168.10.108:8000", # IP local de desarrollo    
-    "http://0.0.0.0:3000",
-    "http://198.23.62.135:8000"
-    # Agregar tus dominios de producción aquí
-    # "https://tudominio.com",
-    # "https://www.tudominio.com",
-]
+# Usar orígenes permitidos desde config.py
+ALLOWED_ORIGINS = config.ALLOWED_ORIGINS
 
-# Si está en producción, leer desde variable de entorno
+# Agregar orígenes adicionales si está en producción
 if os.getenv("PRODUCTION"):
     additional_origins = os.getenv("ALLOWED_ORIGINS", "").split(",")
     ALLOWED_ORIGINS.extend([origin.strip() for origin in additional_origins if origin.strip()])
@@ -82,6 +80,7 @@ app.add_middleware(
 
 app.include_router(users.router, prefix="/api/v1", tags=["👥 Usuarios"])
 app.include_router(categories.router, prefix="/api/v1", tags=["🏷️ Categorías"])
+app.include_router(companies.router, prefix="/api/v1", tags=["🏢 Empresas"])
 app.include_router(products.router, prefix="/api/v1", tags=["📦 Productos"])
 app.include_router(suppliers.router, prefix="/api/v1", tags=["📦 Proveedores"])
 app.include_router(customers.router, prefix="/api/v1", tags=["👥 Clientes"])

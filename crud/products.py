@@ -79,6 +79,56 @@ def get_product_by_id_and_company(db: Session, product_id: int, company_id: int)
         error_message="Product not found in your company"
     )
 
+def get_product_with_warehouses_by_company(db: Session, product_id: int, company_id: int):
+    """Obtener producto con información de stock en todos los almacenes"""
+    # Obtener el producto
+    product = get_product_by_id_and_company(db=db, product_id=product_id, company_id=company_id)
+
+    # Obtener stock en todos los almacenes
+    warehouse_stocks = db.query(
+        models.WarehouseProduct.warehouse_id,
+        models.WarehouseProduct.stock,
+        models.Warehouse.name,
+        models.Warehouse.location
+    ).join(
+        models.Warehouse,
+        models.WarehouseProduct.warehouse_id == models.Warehouse.id
+    ).filter(
+        models.WarehouseProduct.product_id == product_id,
+        models.Warehouse.company_id == company_id
+    ).all()
+
+    # Convertir a lista de diccionarios
+    warehouses_info = [
+        {
+            'warehouse_id': ws.warehouse_id,
+            'warehouse_name': ws.name,
+            'warehouse_location': ws.location,
+            'stock': ws.stock
+        }
+        for ws in warehouse_stocks
+    ]
+
+    # Construir resultado
+    product_dict = {
+        'id': product.id,
+        'name': product.name,
+        'description': product.description,
+        'price': product.price,
+        'quantity': product.quantity,
+        'category_id': product.category_id,
+        'sku': product.sku,
+        'company_id': product.company_id,
+        'category': {
+            'id': product.category.id,
+            'name': product.category.name,
+            'description': product.category.description
+        } if product.category else None,
+        'warehouses': warehouses_info
+    }
+
+    return product_dict
+
 def create_product_for_company(
     db: Session, 
     product: schemas.ProductCreate, 

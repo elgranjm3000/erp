@@ -81,16 +81,16 @@ def bulk_update_products(
 
 # ================= RUTAS DINÁMICAS (DESPUÉS DE LAS ESPECÍFICAS) =================
 
-@router.get("/products/{product_id}", response_model=schemas.Product)
+@router.get("/products/{product_id}", response_model=schemas.ProductWithWarehouses)
 def read_product(
-    product_id: int, 
+    product_id: int,
     current_user: User = Depends(verify_token),
     db: Session = Depends(database.get_db)
 ):
-    """Obtener producto específico de mi empresa"""
-    return crud.get_product_by_id_and_company(
-        db=db, 
-        product_id=product_id, 
+    """Obtener producto específico de mi empresa con información de almacenes"""
+    return crud.get_product_with_warehouses_by_company(
+        db=db,
+        product_id=product_id,
         company_id=current_user.company_id
     )
 

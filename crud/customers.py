@@ -92,6 +92,8 @@ def create_customer_for_company(
             phone=getattr(customer_data, 'phone', None),
             address=getattr(customer_data, 'address', None),
             tax_id=getattr(customer_data, 'tax_id', '').upper() if getattr(customer_data, 'tax_id', None) else None,
+            latitude=getattr(customer_data, 'latitude', None),
+            longitude=getattr(customer_data, 'longitude', None),
         )
         
         db.add(db_customer)

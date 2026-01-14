@@ -68,7 +68,7 @@ def update_company_settings(
 
 @router.get("/companies/me/users", response_model=List[schemas.User])
 def get_company_users(
-    current_user: User = Depends(check_permission(role="manager")),
+    current_user: User = Depends(check_permission(required_role="manager")),
     db: Session = Depends(database.get_db)
 ):
     """Listar usuarios de mi empresa"""

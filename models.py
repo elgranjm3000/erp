@@ -76,6 +76,8 @@ class Customer(Base):
     phone = Column(String(11))
     address = Column(String(200))
     tax_id = Column(String(20))  # ✅ AGREGADO: RIF/CI del cliente
+    latitude = Column(Float, nullable=True)  # ✅ UBICACIÓN: Latitud para mapa
+    longitude = Column(Float, nullable=True)  # ✅ UBICACIÓN: Longitud para mapa
 
     # Relaciones
     invoices = relationship("Invoice", back_populates="customer")
