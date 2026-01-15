@@ -182,10 +182,11 @@ class Login(BaseModel):
 class ProductBase(BaseModel):
     name: str
     description: str
-    price: int
+    price: float  # ✅ MODIFICADO: Float en lugar de int
     quantity: int
     category_id: int
     sku: Optional[str] = None
+    currency_id: Optional[int] = None  # ✅ MONEDA: Moneda del precio
 
 class ProductCreate(ProductBase):
     @validator('price')
@@ -193,7 +194,7 @@ class ProductCreate(ProductBase):
         if v <= 0:
             raise ValueError('Price must be greater than 0')
         return v
-    
+
     @validator('quantity')
     def validate_quantity(cls, v):
         if v < 0:
@@ -203,10 +204,11 @@ class ProductCreate(ProductBase):
 class ProductUpdate(BaseModel):
     name: Optional[str] = None
     description: Optional[str] = None
-    price: Optional[int] = None
+    price: Optional[float] = None  # ✅ MODIFICADO: Float en lugar de int
     quantity: Optional[int] = None
     category_id: Optional[int] = None
     sku: Optional[str] = None
+    currency_id: Optional[int] = None  # ✅ MONEDA
 
     class Config:
         from_attributes = True
@@ -466,6 +468,10 @@ class InvoiceCreate(BaseModel):
     notes: Optional[str] = None
     payment_terms: Optional[str] = None
 
+    # ✅ MONEDA: Moneda de la factura
+    currency_id: Optional[int] = None
+    exchange_rate: Optional[float] = None  # Tasa de cambio histórica
+
     # ✅ VENEZUELA: Información fiscal
     transaction_type: Optional[str] = "contado"  # 'contado', 'credito'
     payment_method: Optional[str] = "efectivo"  # 'efectivo', 'transferencia', etc.
@@ -597,6 +603,10 @@ class PurchaseCreate(BaseModel):
     status: Optional[str] = "pending"
     items: List[PurchaseItemCreate]
 
+    # ✅ MONEDA: Moneda de la compra
+    currency_id: Optional[int] = None
+    exchange_rate: Optional[float] = None  # Tasa de cambio histórica
+
     # ✅ VENEZUELA: Información fiscal
     transaction_type: Optional[str] = "contado"  # 'contado', 'credito'
     payment_method: Optional[str] = "efectivo"  # 'efectivo', 'transferencia', etc.
@@ -623,6 +633,10 @@ class PurchaseUpdate(BaseModel):
     warehouse_id: Optional[int] = None
     status: Optional[str] = None
     items: Optional[List[PurchaseItemCreate]] = None
+
+    # ✅ MONEDA: Moneda de la compra
+    currency_id: Optional[int] = None
+    exchange_rate: Optional[float] = None
 
     # ✅ VENEZUELA: Información fiscal
     transaction_type: Optional[str] = None

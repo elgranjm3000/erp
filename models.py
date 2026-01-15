@@ -98,6 +98,10 @@ class Invoice(Base):
     invoice_number = Column(String(20), index=True)
     control_number = Column(String(20), index=True)  # ✅ VENEZUELA: Número de control SENIAT
 
+    # ✅ MONEDA: Moneda y tasa de cambio de la factura
+    currency_id = Column(Integer, ForeignKey('currencies.id'), nullable=True)
+    exchange_rate = Column(Float, nullable=True)  # Tasa de cambio usada (para registro histórico)
+
     date = Column(DateTime, default=func.now())
     due_date = Column(DateTime, default=func.now())
     total_amount = Column(Float)
@@ -143,6 +147,7 @@ class Invoice(Base):
     invoice_items = relationship("InvoiceItem", back_populates="invoice")
     company = relationship("Company", back_populates="invoices")
     warehouse = relationship("Warehouse")
+    currency = relationship("Currency")  # ✅ MONEDA
 
 # Detalle de la Factura
 class InvoiceItem(Base):
@@ -295,6 +300,10 @@ class Purchase(Base):
     invoice_number = Column(String(30), index=True)  # ✅ Número de factura del proveedor
     control_number = Column(String(20), index=True)  # ✅ VENEZUELA: Número de control
 
+    # ✅ MONEDA: Moneda y tasa de cambio de la compra
+    currency_id = Column(Integer, ForeignKey('currencies.id'), nullable=True)
+    exchange_rate = Column(Float, nullable=True)  # Tasa de cambio usada (para registro histórico)
+
     date = Column(DateTime, default=func.now())
     due_date = Column(DateTime, default=func.now())
     total_amount = Column(Float, default=0.0)
@@ -339,6 +348,7 @@ class Purchase(Base):
     company = relationship("Company", back_populates="purchases")
     supplier = relationship("Supplier", back_populates="purchases")
     warehouse = relationship("Warehouse", back_populates="purchases")
+    currency = relationship("Currency")  # ✅ MONEDA
     purchase_items = relationship("PurchaseItem", back_populates="purchase", cascade="all, delete")
 
 class PurchaseItem(Base):
