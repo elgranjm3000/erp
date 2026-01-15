@@ -181,6 +181,32 @@ from .suppliers import (
     suggest_alternative_suppliers
 )
 
+# Funciones de monedas (currencies)
+from .currencies import (
+    create_currency_for_company,
+    get_currencies_by_company,
+    get_currency_by_id_and_company,
+    update_currency_for_company,
+    delete_currency_for_company
+)
+
+# Funciones de unidades de medida (units)
+from .units import (
+    create_unit_for_company,
+    get_units_by_company,
+    get_unit_by_id_and_company,
+    update_unit_for_company,
+    delete_unit_for_company
+)
+
+# Funciones de reportes SENIAT
+from .reports import (
+    get_sales_book,
+    get_purchase_book,
+    get_sales_summary,
+    get_cash_flow
+)
+
 # Funciones legacy (mantener para compatibilidad)
 from .base import (
     get_categories,
@@ -249,5 +275,16 @@ __all__ = [
     'get_purchases_by_supplier_and_company',
     
     # Base/Categories
-    'get_categories', 'create_category', 'get_categories_by_company'
+    'get_categories', 'create_category', 'get_categories_by_company',
+
+    # Currencies
+    'create_currency_for_company', 'get_currencies_by_company', 'get_currency_by_id_and_company',
+    'update_currency_for_company', 'delete_currency_for_company',
+
+    # Units
+    'create_unit_for_company', 'get_units_by_company', 'get_unit_by_id_and_company',
+    'update_unit_for_company', 'delete_unit_for_company',
+
+    # Reports
+    'get_sales_book', 'get_purchase_book', 'get_sales_summary', 'get_cash_flow'
 ]
