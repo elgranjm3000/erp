@@ -1,2 +1,59 @@
-venv
+# Entorno virtual
+venv/
+env/
+.venv/
+
+# Variables de entorno
 .env
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# PyCharm
+.idea/
+
+# VS Code
+.vscode/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# Base de datos
+*.db
+*.sqlite
+*.sqlite3
+
+# Logs
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Alembic
+# NO ignorar alembic/versions/*.py (son las migraciones)
+# Pero sí ignorar los .pyc de alembic
+alembic/**/__pycache__/
+alembic/versions/__pycache__/
+
+# Migraciones temporales
+*.bak

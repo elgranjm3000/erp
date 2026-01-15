@@ -6,6 +6,11 @@ from sqlalchemy import pool
 from alembic import context
 
 import models
+from dotenv import load_dotenv
+import os
+
+# Cargar variables de entorno desde .env
+load_dotenv()
 
 target_metadata = models.Base.metadata  # Reemplaza con tu metadata
 
@@ -13,6 +18,11 @@ target_metadata = models.Base.metadata  # Reemplaza con tu metadata
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
 config = context.config
+
+# Obtener DATABASE_URL desde variables de entorno
+database_url = os.getenv("DATABASE_URL")
+if database_url:
+    config.set_main_option("sqlalchemy.url", database_url)
 
 # Interpret the config file for Python logging.
 # This line sets up loggers basically.
