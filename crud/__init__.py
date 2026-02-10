@@ -3,6 +3,19 @@
 Módulo CRUD refactorizado para mejor organización y escalabilidad
 """
 
+# Cargar schemas.py antes que nada para evitar conflictos con el package schemas/
+import sys
+import importlib.util
+if 'schemas_py' not in sys.modules:
+    spec = importlib.util.spec_from_file_location("schemas_py", "/home/muentes/devs/erp/schemas.py")
+    schemas_py = importlib.util.module_from_spec(spec)
+    sys.modules['schemas_py'] = schemas_py
+    spec.loader.exec_module(schemas_py)
+
+# Inyectar schemas en sys.modules para que los submódulos lo encuentren
+if 'schemas' not in sys.modules or not hasattr(sys.modules['schemas'], 'User'):
+    sys.modules['schemas'] = sys.modules['schemas_py']
+
 # Funciones de autenticación y usuarios
 from .auth import (
     create_user,
@@ -190,6 +203,9 @@ from .currencies import (
     delete_currency_for_company
 )
 
+# Servicio de monedas
+from .currency_service import CurrencyService
+
 # Funciones de unidades de medida (units)
 from .units import (
     create_unit_for_company,
@@ -279,7 +295,7 @@ __all__ = [
 
     # Currencies
     'create_currency_for_company', 'get_currencies_by_company', 'get_currency_by_id_and_company',
-    'update_currency_for_company', 'delete_currency_for_company',
+    'update_currency_for_company', 'delete_currency_for_company', 'CurrencyService',
 
     # Units
     'create_unit_for_company', 'get_units_by_company', 'get_unit_by_id_and_company',

@@ -86,6 +86,24 @@ def create_purchase_for_company(
             supplier_address=getattr(purchase_data, 'supplier_address', None)
         )
 
+        # ✅ MONEDA: Establecer moneda y tasa de cambio automáticamente
+        currency_id = getattr(purchase_data, 'currency_id', None)
+        if currency_id or company_id:
+            try:
+                from crud import CurrencyService
+                currency_data = CurrencyService.prepare_transaction_currency_data(
+                    db, company_id, currency_id, use_base_currency=True
+                )
+                purchase.currency_id = currency_data['currency_id']
+                purchase.exchange_rate = currency_data['exchange_rate']
+                purchase.exchange_rate_date = currency_data['exchange_rate_date']
+            except Exception as e:
+                # Si hay error con monedas, usar defaults
+                if not purchase.currency_id:
+                    purchase.currency_id = None
+                    purchase.exchange_rate = None
+                    purchase.exchange_rate_date = None
+
         db.add(purchase)
         db.flush()  # Para obtener el ID
 
@@ -103,9 +121,48 @@ def create_purchase_for_company(
                     error_message="Product not found in your company"
                 )
 
-                # Calcular precio
+                # ✅ MONEDA: Determinar moneda del item
+                item_currency_id = getattr(item_data, 'currency_id', None)
+                if item_currency_id is None:
+                    # Si no tiene moneda, usar moneda de la compra
+                    item_currency_id = purchase.currency_id
+
+                # ✅ MONEDA: Obtener tasa de cambio para el item
+                item_exchange_rate = None
+                item_exchange_rate_date = None
+
+                if item_currency_id != purchase.currency_id:
+                    # Necesita conversión
+                    try:
+                        from crud import CurrencyService
+                        base_currency = CurrencyService.get_base_currency(db, company_id)
+                        if base_currency:
+                            # Convertir item -> base -> purchase
+                            rate1 = CurrencyService.get_latest_exchange_rate(
+                                db, company_id, item_currency_id, base_currency.id
+                            )
+                            rate2 = CurrencyService.get_latest_exchange_rate(
+                                db, company_id, base_currency.id, purchase.currency_id
+                            )
+
+                            if rate1 and rate2:
+                                item_exchange_rate = rate1.rate * rate2.rate
+                                item_exchange_rate_date = rate1.recorded_at
+                            elif purchase.currency_id == base_currency.id and rate1:
+                                item_exchange_rate = rate1.rate
+                                item_exchange_rate_date = rate1.recorded_at
+                    except:
+                        pass
+
+                # ✅ MONEDA: Obtener precio en la moneda del item
                 price_per_unit = getattr(item_data, 'price_per_unit', item_data.price_per_unit)
                 line_total = price_per_unit * item_data.quantity
+
+                # ✅ MONEDA: Calcular monto en moneda base de la compra
+                base_currency_amount = line_total
+                if item_exchange_rate and item_exchange_rate > 0:
+                    # Convertir a moneda de la compra
+                    base_currency_amount = line_total / item_exchange_rate if item_exchange_rate > 1 else line_total * item_exchange_rate
 
                 # ✅ VENEZUELA: Calcular impuestos del item
                 tax_rate = getattr(item_data, 'tax_rate', purchase.iva_percentage)
@@ -113,15 +170,20 @@ def create_purchase_for_company(
                 tax_amount = 0.0
 
                 if not is_exempt and tax_rate > 0:
-                    tax_amount = venezuela_tax.calculate_iva(line_total, tax_rate)
+                    tax_amount = venezuela_tax.calculate_iva(base_currency_amount, tax_rate)
 
-                # Crear item de compra con impuestos
+                # Crear item de compra con toda la info de moneda
                 purchase_item = models.PurchaseItem(
                     purchase_id=purchase.id,
                     product_id=product.id,
                     quantity=item_data.quantity,
                     price_per_unit=price_per_unit,
                     total_price=line_total,
+                    # ✅ MONEDA: Info de moneda del item
+                    currency_id=item_currency_id,
+                    exchange_rate=item_exchange_rate,
+                    exchange_rate_date=item_exchange_rate_date,
+                    base_currency_amount=base_currency_amount,
                     # ✅ VENEZUELA: Información fiscal del item
                     tax_rate=tax_rate,
                     tax_amount=tax_amount,
@@ -129,7 +191,7 @@ def create_purchase_for_company(
                 )
 
                 db.add(purchase_item)
-                total_amount += line_total
+                total_amount += base_currency_amount  # Sumar en moneda base
 
                 # Si la compra está recibida/confirmada, actualizar stock
                 if purchase.status in ['received', 'recibida']:

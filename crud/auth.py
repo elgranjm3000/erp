@@ -9,7 +9,15 @@ from fastapi import HTTPException
 from datetime import datetime, timedelta
 from typing import Optional
 import models
-import schemas
+import sys
+# Importar schemas.py directamente para evitar importar el package schemas/
+import importlib.util
+spec = importlib.util.spec_from_file_location("schemas_file", "/home/muentes/devs/erp/schemas.py")
+if 'schemas_file' not in sys.modules:
+    schemas_file = importlib.util.module_from_spec(spec)
+    sys.modules['schemas_file'] = schemas_file
+    spec.loader.exec_module(schemas_file)
+schemas = sys.modules['schemas_file']
 from auth import hash_password, create_access_token
 from config import ACCESS_TOKEN_EXPIRE_MINUTES
 from .base import pwd_context
@@ -82,52 +90,16 @@ def create_user(db: Session, username: str, password: str):
 # ================= GESTIÓN MULTIEMPRESA =================
 
 def authenticate_multicompany(db: Session, login_data: schemas.LoginRequest):
-    """Autenticación con soporte completo multiempresa"""
-    user = authenticate_user(
-        db=db,
-        username=login_data.username,
-        password=login_data.password,
-        company_tax_id=login_data.company_tax_id
-    )
-    
-    if not user:
-        raise HTTPException(
-            status_code=401,
-            detail="Invalid credentials or company",
-        )
-    
-    # Actualizar último login
-    user.last_login = datetime.utcnow()
-    db.commit()
-    
-    # Generar token
-    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    access_token = create_access_token(
-        data={
-            "sub": user.username,
-            "company_id": user.company_id,
-            "role": user.role,
-            "is_company_admin": user.is_company_admin
-        },
-        expires_delta=access_token_expires
-    )
-    
-    return schemas.LoginResponse(
-        access_token=access_token,
-        token_type="bearer",
-        user=schemas.UserWithCompany(
-            id=user.id,
-            username=user.username,
-            email=user.email,
-            role=user.role,
-            company_id=user.company_id,
-            is_active=user.is_active,
-            is_company_admin=user.is_company_admin,
-            created_at=user.created_at,
-            last_login=user.last_login,
-            company=user.company
-        )
-    )
+    """
+    Autenticación - VERSIÓN EMERGENCY CON LOGGING
+    """
+    print(f"[LOGIN] ===== LOGIN REQUEST =====")
+    print(f"[LOGIN] Username: {login_data.username}")
+    print(f"[LOGIN] Company Tax ID: {login_data.company_tax_id}")
+
+    from crud.auth_emergency import authenticate_multicompany_emergency
+
+    return authenticate_multicompany_emergency(db, login_data)
 
 def register_company_and_login(db: Session, company_data: schemas.CompanyCreate):
     """Registrar empresa nueva y hacer login automático"""

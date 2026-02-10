@@ -157,3 +157,69 @@ def get_pending_invoices(
         company_id=current_user.company_id,
         status="presupuesto"
     )
+
+# ================= MULTI-MONEDA: PREVIEW DE FACTURAS =================
+
+from pydantic import BaseModel
+from typing import Optional, List
+
+class InvoicePreviewItem(BaseModel):
+    product_id: int
+    quantity: int
+
+class InvoicePreviewRequest(BaseModel):
+    items: List[InvoicePreviewItem]
+    customer_id: int
+    payment_method: str
+    manual_exchange_rate: Optional[float] = None
+    igtf_exempt: bool = False
+    iva_percentage: float = 16.0
+    reference_currency_code: str = "USD"
+    payment_currency_code: str = "VES"
+
+@router.post("/invoices/preview")
+def preview_invoice_with_conversion(
+    request: InvoicePreviewRequest,
+    current_user: User = Depends(verify_token),
+    db: Session = Depends(database.get_db)
+):
+    """
+    Preview de factura con conversión automática USD→VES.
+
+    Calcula todos los totales de una factura con la tasa de cambio del día.
+    Útil para mostrar al cliente el preview antes de crear la factura.
+
+    Args:
+        request: InvoicePreviewRequest con todos los parámetros
+
+    Returns:
+        Dict con el cálculo completo de la factura:
+        - items: Lista de items con precios en ambas monedas
+        - exchange_rate: Tasa utilizada
+        - totals: Subtotal, IVA, IGTF, Total final
+    """
+    from services.invoice_calculation_service import InvoiceCalculationService
+
+    try:
+        service = InvoiceCalculationService(db, current_user.company_id)
+
+        # Convertir items a dict
+        items_dict = [item.dict() for item in request.items]
+
+        preview = service.calculate_invoice_preview(
+            items=items_dict,
+            customer_id=request.customer_id,
+            payment_method=request.payment_method,
+            manual_exchange_rate=request.manual_exchange_rate,
+            igtf_exempt=request.igtf_exempt,
+            iva_percentage=request.iva_percentage,
+            reference_currency_code=request.reference_currency_code,
+            payment_currency_code=request.payment_currency_code
+        )
+
+        return preview
+
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error calculating invoice preview: {str(e)}")

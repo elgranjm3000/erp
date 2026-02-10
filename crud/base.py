@@ -8,7 +8,15 @@ from sqlalchemy import func
 from fastapi import HTTPException
 from typing import Optional, List, Type, TypeVar
 import models
-import schemas
+import sys
+import os
+# Importar schemas.py directamente para evitar importar el package schemas/
+spec = sys.modules.get('schemas_file') or __import__('importlib').util.spec_from_file_location("schemas_file", "/home/muentes/devs/erp/schemas.py")
+if 'schemas_file' not in sys.modules:
+    schemas_file = __import__('importlib').util.module_from_spec(spec)
+    sys.modules['schemas_file'] = schemas_file
+    spec.loader.exec_module(schemas_file)
+schemas = sys.modules['schemas_file']
 from passlib.context import CryptContext
 
 # Type variable para funciones genéricas

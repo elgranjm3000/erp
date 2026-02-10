@@ -8,6 +8,7 @@ from sqlalchemy import func, and_
 from fastapi import HTTPException
 from datetime import datetime
 from typing import List, Optional
+from decimal import Decimal
 import models
 import schemas
 from .base import verify_company_ownership, paginate_query
@@ -121,7 +122,7 @@ def create_invoice_for_company(
                     models.Product.company_id == company_id
                 ).first()
                 if product:
-                    unit_price = getattr(item, 'price_per_unit', product.price)
+                    unit_price = item.price_per_unit if item.price_per_unit is not None else product.price
                     estimated_total += unit_price * item.quantity
 
         # Verificar si se supera el umbral para requerir RIF
@@ -173,8 +174,112 @@ def create_invoice_for_company(
             customer_address=getattr(invoice_data, 'customer_address', None)
         )
 
+        # ✅ MONEDA: Establecer moneda y tasa de cambio automáticamente
+        currency_id = getattr(invoice_data, 'currency_id', None)
+        if currency_id or company_id:
+            try:
+                from crud import CurrencyService
+                currency_data = CurrencyService.prepare_transaction_currency_data(
+                    db, company_id, currency_id, use_base_currency=True
+                )
+                invoice.currency_id = currency_data['currency_id']
+                invoice.exchange_rate = currency_data['exchange_rate']
+                invoice.exchange_rate_date = currency_data['exchange_rate_date']
+            except Exception as e:
+                # Si hay error con monedas, usar defaults
+                if not invoice.currency_id:
+                    invoice.currency_id = None
+                    invoice.exchange_rate = None
+                    invoice.exchange_rate_date = None
+
         db.add(invoice)
         db.flush()  # Para obtener el ID
+
+        # ✅ SISTEMA REF: Verificar si usamos precios de referencia
+        use_ref_system = False
+        if hasattr(invoice_data, 'items') and invoice_data.items:
+            # Verificar si todos los productos tienen price_usd
+            all_have_price_usd = True
+            for item_data in invoice_data.items:
+                product = db.query(models.Product).filter(
+                    models.Product.id == item_data.product_id,
+                    models.Product.company_id == company_id
+                ).first()
+                if not product or product.price_usd is None:
+                    all_have_price_usd = False
+                    break
+
+            if all_have_price_usd:
+                use_ref_system = True
+
+        # Si usamos sistema REF, calcular totales con ReferencePriceService
+        ref_totals = None
+        if use_ref_system:
+            try:
+                from services.reference_price_service import ReferencePriceService
+
+                ref_service = ReferencePriceService(db, company_id)
+
+                # Preparar items para REF
+                ref_items = []
+                for item_data in invoice_data.items:
+                    ref_items.append({
+                        "product_id": item_data.product_id,
+                        "quantity": item_data.quantity
+                    })
+
+                # Calcular totales REF
+                ref_totals = ref_service.calculate_invoice_totals_with_reference(
+                    items=ref_items,
+                    customer_id=getattr(invoice_data, 'customer_id', None),
+                    payment_method=getattr(invoice_data, 'payment_method', 'transferencia'),
+                    manual_exchange_rate=getattr(invoice_data, 'manual_exchange_rate', None),
+                    discount_percentage=getattr(invoice_data, 'discount_percentage', None)
+                )
+
+                # Guardar campos REF en la factura
+                if ref_totals:
+                    invoice.subtotal_reference = float(ref_totals.get('subtotal_reference', 0))
+                    invoice.subtotal_target = float(ref_totals.get('subtotal_target', 0))
+                    invoice.reference_currency_id = ref_totals.get('reference_currency_id')  # USD
+                    invoice.currency_id = ref_totals.get('payment_currency_id')  # VES
+                    invoice.exchange_rate = float(ref_totals.get('exchange_rate', 1.0))
+                    invoice.exchange_rate_date = ref_totals.get('rate_date')
+
+                    # Actualizar totales con valores REF
+                    invoice.subtotal = invoice.subtotal_target  # Subtotal en VES
+                    invoice.iva_amount = float(ref_totals.get('iva_amount', 0))
+                    invoice.igtf_amount = float(ref_totals.get('igtf_amount', 0))
+                    invoice.igtf_exempt = ref_totals.get('igtf_exempt', False)
+                    invoice.total_amount = float(ref_totals.get('total_amount', 0))
+                    invoice.total_with_taxes = invoice.total_amount
+
+                    # ✅ HISTORIAL: Guardar registro en invoice_rate_history
+                    try:
+                        # Obtener IDs de monedas
+                        from models import Currency
+                        usd_currency = db.query(Currency).filter(Currency.code == 'USD').first()
+                        ves_currency = db.query(Currency).filter(Currency.code == 'VES').first()
+
+                        if usd_currency and ves_currency:
+                            rate_history = models.InvoiceRateHistory(
+                                invoice_id=invoice.id,
+                                company_id=company_id,
+                                from_currency_id=usd_currency.id,
+                                to_currency_id=ves_currency.id,
+                                exchange_rate=invoice.exchange_rate,
+                                rate_source='BCV',
+                                rate_date=invoice.exchange_rate_date
+                            )
+                            db.add(rate_history)
+                    except Exception as hist_err:
+                        # No fallar si hay error guardando historial
+                        print(f"Warning: Could not save rate history: {hist_err}")
+
+            except Exception as e:
+                # Si falla el cálculo REF, loggear pero continuar con sistema legacy
+                print(f"Error calculating REF totals: {e}")
+                use_ref_system = False
 
         total_amount = 0
 
@@ -209,9 +314,70 @@ def create_invoice_for_company(
                         detail=f"Insufficient stock for product {product.name}"
                     )
 
-                # Calcular precio
-                unit_price = getattr(item_data, 'price_per_unit', product.price)
+                # ✅ MONEDA: Determinar moneda del item
+                item_currency_id = getattr(item_data, 'currency_id', None)
+                if item_currency_id is None:
+                    # Si no tiene moneda, usar moneda de la factura
+                    item_currency_id = invoice.currency_id
+
+                # ✅ MONEDA: Obtener tasa de cambio para el item
+                item_exchange_rate = None
+                item_exchange_rate_date = None
+
+                if item_currency_id != invoice.currency_id:
+                    # Necesita conversión
+                    try:
+                        from crud import CurrencyService
+                        currency_data = CurrencyService.prepare_transaction_currency_data(
+                            db, company_id, item_currency_id, use_base_currency=True
+                        )
+                        # Obtener tasa de conversión: item_currency -> invoice_currency
+                        if item_currency_id and item_currency_id != invoice.currency_id:
+                            # Buscar tasa directa
+                            base_currency = CurrencyService.get_base_currency(db, company_id)
+                            if base_currency:
+                                # Convertir item -> base -> invoice
+                                rate1 = CurrencyService.get_latest_exchange_rate(
+                                    db, company_id, item_currency_id, base_currency.id
+                                )
+                                rate2 = CurrencyService.get_latest_exchange_rate(
+                                    db, company_id, base_currency.id, invoice.currency_id
+                                )
+
+                                if rate1 and rate2:
+                                    item_exchange_rate = rate1.rate * rate2.rate
+                                    item_exchange_rate_date = rate1.recorded_at
+                                elif invoice.currency_id == base_currency.id and rate1:
+                                    item_exchange_rate = rate1.rate
+                                    item_exchange_rate_date = rate1.recorded_at
+                    except:
+                        pass
+
+                # ✅ MONEDA: Obtener precio en la moneda del item
+                if hasattr(item_data, 'price_per_unit') and item_data.price_per_unit is not None:
+                    unit_price = item_data.price_per_unit
+                else:
+                    # Buscar precio del producto en la moneda del item
+                    if item_currency_id:
+                        product_price = CurrencyService.get_product_price(db, product.id, item_currency_id)
+                        unit_price = product_price.price if product_price else product.price
+                    else:
+                        unit_price = product.price
+
                 line_total = unit_price * item_data.quantity
+
+                # ✅ MONEDA: Calcular monto en moneda base de la factura
+                base_currency_amount = line_total
+                if item_exchange_rate and item_exchange_rate > 0:
+                    # Convertir a moneda de la factura
+                    if item_currency_id > invoice.currency_id:
+                        # item tiene tasa mayor, dividir
+                        base_currency_amount = line_total / item_exchange_rate
+                    else:
+                        # item tiene tasa menor, multiplicar
+                        base_currency_amount = line_total * item_exchange_rate
+                elif item_currency_id != invoice.currency_id:
+                    base_currency_amount = line_total  # Si no hay tasa, mantener original
 
                 # ✅ VENEZUELA: Calcular impuestos del item
                 tax_rate = getattr(item_data, 'tax_rate', invoice.iva_percentage)
@@ -219,15 +385,20 @@ def create_invoice_for_company(
                 tax_amount = 0.0
 
                 if not is_exempt and tax_rate > 0:
-                    tax_amount = venezuela_tax.calculate_iva(line_total, tax_rate)
+                    tax_amount = venezuela_tax.calculate_iva(base_currency_amount, tax_rate)
 
-                # Crear item de factura con impuestos
+                # Crear item de factura con toda la info de moneda
                 invoice_item = models.InvoiceItem(
                     invoice_id=invoice.id,
                     product_id=product.id,
                     quantity=item_data.quantity,
                     price_per_unit=unit_price,
                     total_price=line_total,
+                    # ✅ MONEDA: Info de moneda del item
+                    currency_id=item_currency_id,
+                    exchange_rate=item_exchange_rate,
+                    exchange_rate_date=item_exchange_rate_date,
+                    base_currency_amount=base_currency_amount,
                     # ✅ VENEZUELA: Información fiscal del item
                     tax_rate=tax_rate,
                     tax_amount=tax_amount,
@@ -235,7 +406,7 @@ def create_invoice_for_company(
                 )
 
                 db.add(invoice_item)
-                total_amount += line_total
+                total_amount += base_currency_amount  # Sumar en moneda base
 
                 # Actualizar stock si es factura confirmada
                 if invoice.status == 'factura':
@@ -280,45 +451,112 @@ def create_invoice_for_company(
                         )
                         db.add(movement)
 
-        # ✅ VENEZUELA: Calcular totales con impuestos
-        # Preparar datos para cálculo
-        items_data = []
-        for item_data in invoice_data.items:
-            product = db.query(models.Product).filter(
-                models.Product.id == item_data.product_id
-            ).first()
-            unit_price = getattr(item_data, 'price_per_unit', product.price)
-            line_total = unit_price * item_data.quantity
+        # ✅ VENEZUELA: Calcular totales con impuestos (SOLO si NO usamos REF)
+        if not use_ref_system:
+            # Preparar datos para cálculo
+            items_data = []
+            for item_data in invoice_data.items:
+                product = db.query(models.Product).filter(
+                    models.Product.id == item_data.product_id
+                ).first()
+                unit_price = item_data.price_per_unit if item_data.price_per_unit is not None else product.price
+                line_total = unit_price * item_data.quantity
 
-            items_data.append({
-                'price': unit_price,
-                'quantity': item_data.quantity,
-                'tax_rate': getattr(item_data, 'tax_rate', invoice.iva_percentage),
-                'is_exempt': getattr(item_data, 'is_exempt', False)
-            })
+                items_data.append({
+                    'price': unit_price,
+                    'quantity': item_data.quantity,
+                    'tax_rate': getattr(item_data, 'tax_rate', invoice.iva_percentage),
+                    'is_exempt': getattr(item_data, 'is_exempt', False)
+                })
 
-        # Calcular todos los impuestos usando la función auxiliar
-        # ✅ VENEZUELA: Pasar moneda de la empresa para conversión correcta de umbrales
-        tax_calculations = venezuela_tax.calculate_invoice_totals(
-            items=items_data,
-            discount=invoice.discount,
-            iva_percentage=invoice.iva_percentage,
-            company=company,
-            currency=company.currency  # USD o VES
-        )
+            # Calcular todos los impuestos usando la función auxiliar
+            # ✅ VENEZUELA: Pasar moneda de la empresa para conversión correcta de umbrales
+            tax_calculations = venezuela_tax.calculate_invoice_totals(
+                items=items_data,
+                discount=invoice.discount,
+                iva_percentage=invoice.iva_percentage,
+                company=company,
+                currency=company.currency  # USD o VES
+            )
 
-        # Actualizar totales de la factura
-        invoice.subtotal = tax_calculations['subtotal']
-        invoice.taxable_base = tax_calculations['taxable_base']
-        invoice.exempt_amount = tax_calculations['exempt_amount']
-        invoice.iva_amount = tax_calculations['iva_amount']
-        invoice.iva_retention = tax_calculations['iva_retention']
-        invoice.iva_retention_percentage = tax_calculations['iva_retention_percentage']
-        invoice.islr_retention = tax_calculations['islr_retention']
-        invoice.islr_retention_percentage = tax_calculations['islr_retention_percentage']
-        invoice.stamp_tax = tax_calculations['stamp_tax']
-        invoice.total_with_taxes = tax_calculations['total_with_taxes']
-        invoice.total_amount = tax_calculations['total_with_taxes']
+            # Actualizar totales de la factura
+            invoice.subtotal = tax_calculations['subtotal']
+            invoice.taxable_base = tax_calculations['taxable_base']
+            invoice.exempt_amount = tax_calculations['exempt_amount']
+            invoice.iva_amount = tax_calculations['iva_amount']
+            invoice.iva_retention = tax_calculations['iva_retention']
+            invoice.iva_retention_percentage = tax_calculations['iva_retention_percentage']
+            invoice.islr_retention = tax_calculations['islr_retention']
+            invoice.islr_retention_percentage = tax_calculations['islr_retention_percentage']
+            invoice.stamp_tax = tax_calculations['stamp_tax']
+            invoice.total_with_taxes = tax_calculations['total_with_taxes']
+            invoice.total_amount = tax_calculations['total_with_taxes']
+
+            # ✅ IGTF: Calcular IGTF si aplica
+            igtf_amount = 0.0
+            igtf_percentage = 0.0
+            igtf_exempt = False
+
+            # Solo calcular IGTF si la factura está en divisas
+            if invoice.currency_id:
+                try:
+                    from services.currency_business_service import CurrencyService
+                    currency_service = CurrencyService(db)
+
+                    igtf_calc, applied, metadata = currency_service.calculate_igtf_for_transaction(
+                        amount=Decimal(str(tax_calculations['subtotal'])),
+                        currency_id=invoice.currency_id,
+                        company_id=company_id,
+                        payment_method=invoice.payment_method or "transfer"
+                    )
+
+                    # Verificar si el usuario forzó exención
+                    force_exempt = getattr(invoice_data, 'igtf_exempt', False)
+
+                    if applied and not force_exempt:
+                        igtf_amount = float(igtf_calc)
+                        igtf_percentage = metadata.get("rate", 3.0)
+                        igtf_exempt = False
+                    else:
+                        igtf_exempt = True
+
+                except Exception as e:
+                    # Si falla el cálculo de IGTF, registrar pero no bloquear
+                    print(f"Error calculating IGTF: {e}")
+                    igtf_exempt = True
+
+            # Guardar IGTF en la factura
+            invoice.igtf_amount = igtf_amount
+            invoice.igtf_percentage = igtf_percentage
+            invoice.igtf_exempt = igtf_exempt
+
+            # Actualizar total con IGTF
+            invoice.total_with_taxes += igtf_amount
+            invoice.total_amount += igtf_amount
+        else:
+            # ✅ SISTEMA REF: Los totales ya fueron calculados por ReferencePriceService
+            # Solo necesitamos calcular retenciones adicionales si aplica
+            tax_calculations = venezuela_tax.calculate_invoice_totals(
+                items=[{
+                    'price': float(invoice.subtotal_reference),
+                    'quantity': 1,
+                    'tax_rate': invoice.iva_percentage,
+                    'is_exempt': False
+                }],
+                discount=invoice.discount,
+                iva_percentage=invoice.iva_percentage,
+                company=company,
+                currency=company.currency
+            )
+
+            # Actualizar retenciones (estas son calculadas igual con o sin REF)
+            invoice.iva_retention = tax_calculations['iva_retention']
+            invoice.iva_retention_percentage = tax_calculations['iva_retention_percentage']
+            invoice.islr_retention = tax_calculations['islr_retention']
+            invoice.islr_retention_percentage = tax_calculations['islr_retention_percentage']
+            invoice.stamp_tax = tax_calculations['stamp_tax']
+            invoice.taxable_base = invoice.subtotal_target  # Base imponible en VES
+            invoice.exempt_amount = 0.0  # REF asume no exentos por ahora
 
         # Actualizar contadores de empresa
         company.next_invoice_number += 1
@@ -379,6 +617,15 @@ def view_invoice_by_company(db: Session, invoice_id: int, company_id: int):
         "stamp_tax": invoice.stamp_tax,
         "subtotal": invoice.subtotal,
         "total_with_taxes": invoice.total_with_taxes,
+        # ✅ IGTF: Agregar campos de IGTF
+        "igtf_amount": invoice.igtf_amount,
+        "igtf_percentage": invoice.igtf_percentage,
+        "igtf_exempt": invoice.igtf_exempt,
+        # ✅ MONEDA: Agregar campos de moneda
+        "currency_id": invoice.currency_id,
+        "currency_code": invoice.currency.code if invoice.currency else None,
+        "exchange_rate": invoice.exchange_rate,
+        "exchange_rate_date": invoice.exchange_rate_date,
         "customer_phone": invoice.customer_phone,
         "customer_address": invoice.customer_address,
         "items": []
@@ -499,7 +746,7 @@ def edit_invoice_for_company(
                     )
 
                 # Calcular precio
-                unit_price = getattr(item_data, 'price_per_unit', product.price)
+                unit_price = item_data.price_per_unit if item_data.price_per_unit is not None else product.price
                 line_total = unit_price * item_data.quantity
 
                 # Crear nuevo item

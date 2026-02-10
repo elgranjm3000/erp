@@ -2,9 +2,9 @@ from datetime import datetime, timedelta
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 from config import SECRET_KEY, ALGORITHM, ACCESS_TOKEN_EXPIRE_MINUTES
-from models import fake_users_db, User, Company
+from models import User, Company
 from fastapi import HTTPException, status, Depends
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload  # ⭐ Agregado joinedload
 from fastapi.security import OAuth2PasswordBearer
 import database
 
@@ -51,8 +51,10 @@ def verify_token(token: str = Depends(oauth2_scheme), db: Session = Depends(data
         if username is None or company_id is None:
             raise credentials_exception
 
-        # ⭐ BUSCAR USUARIO CON EMPRESA ESPECÍFICA
-        user = db.query(User).filter(
+        # ⭐ BUSCAR USUARIO CON EAGER LOADING (EVITA TIMEOUT)
+        user = db.query(User).options(
+            joinedload(User.company)
+        ).filter(
             User.username == username,
             User.company_id == company_id,
             User.is_active == True
@@ -97,31 +99,35 @@ def check_permission(required_role: str = None, require_company_admin: bool = Fa
     return permission_checker
 
 def authenticate_user(db: Session, username: str, password: str, company_tax_id: str = None):
-    """Autenticar usuario con empresa opcional"""
-    
+    """Autenticar usuario con empresa opcional - OPTIMIZADO CON EAGER LOADING"""
+
     if company_tax_id:
-        # Buscar por empresa específica
-        user = db.query(User).join(Company).filter(
+        # ⭐ EAGER LOADING - Cargar company en la misma query (evita timeout)
+        user = db.query(User).options(
+            joinedload(User.company)
+        ).join(Company).filter(
             User.username == username,
             Company.tax_id == company_tax_id.upper(),
             User.is_active == True,
             Company.is_active == True
         ).first()
     else:
-        # Buscar primera empresa activa del usuario
-        user = db.query(User).join(Company).filter(
+        # ⭐ EAGER LOADING - Cargar company en la misma query (evita timeout)
+        user = db.query(User).options(
+            joinedload(User.company)
+        ).join(Company).filter(
             User.username == username,
             User.is_active == True,
             Company.is_active == True
         ).first()
-    
+
     if not user or not verify_password(password, user.hashed_password):
         return None
-        
+
     # Actualizar último login
     user.last_login = datetime.utcnow()
     db.commit()
-    
+
     return user
 
 def create_user_with_company(

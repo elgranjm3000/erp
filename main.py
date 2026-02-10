@@ -8,7 +8,15 @@ from fastapi.responses import JSONResponse
 
 
 # Importar solo los routers que existen
-from routers import products, movements, warehouses, users, warehousesproducts, invoices, purchases, customers, suppliers, categories, companies, reports, currencies, units
+from routers import products, movements, warehouses, users, warehousesproducts, invoices, purchases, customers, suppliers, categories, companies, reports, units, product_prices
+from routers.currency_config_router import router as currency_config_router
+from routers.banking import router as banking_router
+from routers.daily_rates import router as daily_rates_router
+from routers.reference_prices import router as reference_prices_router  # ✅ PRECIOS DE REFERENCIA
+from routers import sales_operations  # ✅ SISTEMA ESCRITORIO: Operaciones de venta
+from routers import taxes  # ✅ SISTEMA ESCRITORIO: Impuestos
+from routers import coins  # ✅ SISTEMA ESCRITORIO: Monedas (Coins)
+# from routers.currencies_v2 import router as currencies_v2_router  # TEMPORALMENTE DESACTIVADO
 
 # Importar dependencias
 import database
@@ -90,8 +98,16 @@ app.include_router(movements.router, prefix="/api/v1", tags=["🔄 Movimientos"]
 app.include_router(warehouses.router, prefix="/api/v1", tags=["🏭 Almacenes"])
 app.include_router(warehousesproducts.router, prefix="/api/v1", tags=["📦 Stock"])
 app.include_router(reports.router, prefix="/api/v1", tags=["📊 Reportes SENIAT"])
-app.include_router(currencies.router, prefix="/api/v1", tags=["💰 Monedas"])
+app.include_router(currency_config_router)  # Ya tiene prefix="/api/v1/currencies" incluido
+# app.include_router(currencies_v2_router)  # v2 con batch operations, caching y mejor error handling  # TEMPORALMENTE DESACTIVADO
 app.include_router(units.router, prefix="/api/v1", tags=["📏 Unidades"])
+app.include_router(product_prices.router, prefix="/api/v1", tags=["💰 Precios de Productos"])
+app.include_router(banking_router)  # Ya tiene prefix="/api/v1/banking"
+app.include_router(daily_rates_router)  # Ya tiene prefix="/api/v1/rates"
+app.include_router(reference_prices_router)  # Ya tiene prefix="/api/v1/reference-prices"
+app.include_router(sales_operations.router, prefix="/api/v1", tags=["💼 ✅ Operaciones de Venta"])  # ✅ SISTEMA ESCRITORIO
+app.include_router(taxes.router, prefix="/api/v1", tags=["💰 ✅ Impuestos"])  # ✅ SISTEMA ESCRITORIO
+app.include_router(coins.router, prefix="/api/v1", tags=["💵 ✅ Monedas (Coins)"])  # ✅ SISTEMA ESCRITORIO
 
 # ================= ENDPOINTS RAÍZ =================
 

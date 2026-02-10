@@ -6,13 +6,14 @@ from sqlalchemy import pool
 from alembic import context
 
 import models
+from database import Base
 from dotenv import load_dotenv
 import os
 
 # Cargar variables de entorno desde .env
 load_dotenv()
 
-target_metadata = models.Base.metadata  # Reemplaza con tu metadata
+target_metadata = Base.metadata  # Reemplaza con tu metadata
 
 
 # this is the Alembic Config object, which provides

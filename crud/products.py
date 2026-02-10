@@ -57,14 +57,21 @@ def delete_product(db: Session, product_id: int):
 # ================= FUNCIONES MULTIEMPRESA =================
 
 def get_products_by_company(
-    db: Session, 
-    company_id: int, 
-    skip: int = 0, 
+    db: Session,
+    company_id: int,
+    skip: int = 0,
     limit: int = 100
 ):
     """Obtener productos de una empresa específica"""
+    from sqlalchemy.orm import joinedload
     return paginate_query(
-        db.query(models.Product).filter(models.Product.company_id == company_id),
+        db.query(models.Product)
+        .options(
+            joinedload(models.Product.category),
+            joinedload(models.Product.currency),
+            joinedload(models.Product.warehouse)
+        )
+        .filter(models.Product.company_id == company_id),
         skip=skip,
         limit=limit
     ).all()
@@ -81,8 +88,19 @@ def get_product_by_id_and_company(db: Session, product_id: int, company_id: int)
 
 def get_product_with_warehouses_by_company(db: Session, product_id: int, company_id: int):
     """Obtener producto con información de stock en todos los almacenes"""
-    # Obtener el producto
-    product = get_product_by_id_and_company(db=db, product_id=product_id, company_id=company_id)
+    # Obtener el producto con eager loading de relaciones
+    from sqlalchemy.orm import joinedload
+    product = db.query(models.Product).options(
+        joinedload(models.Product.category),
+        joinedload(models.Product.warehouse)
+    ).filter(
+        models.Product.id == product_id,
+        models.Product.company_id == company_id
+    ).first()
+
+    if not product:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=404, detail="Product not found in your company")
 
     # Obtener stock en todos los almacenes
     warehouse_stocks = db.query(
@@ -119,6 +137,12 @@ def get_product_with_warehouses_by_company(db: Session, product_id: int, company
         'category_id': product.category_id,
         'sku': product.sku,
         'company_id': product.company_id,
+        'warehouse_id': product.warehouse_id,  # ✅ Agregado: Depósito/Almacén del producto
+        'warehouse': {
+            'id': product.warehouse.id,
+            'name': product.warehouse.name,
+            'location': product.warehouse.location
+        } if product.warehouse else None,  # ✅ Datos completos del warehouse
         'category': {
             'id': product.category.id,
             'name': product.category.name,
@@ -155,10 +179,13 @@ def create_product_for_company(
             detail="SKU already exists in this company"
         )
     
-    # Crear producto
+    # Crear producto (excluir currency_id ya que está en ProductPrice, no en Product)
+    product_data_dict = product.dict()
+    product_data_dict.pop('currency_id', None)  # Remover currency_id si existe
+
     db_product = models.Product(
         company_id=company_id,
-        **product.dict()
+        **product_data_dict
     )
     
     db.add(db_product)
