@@ -35,6 +35,9 @@ CoinHistory = sys.modules['models_file'].CoinHistory  # ✅ SISTEMA ESCRITORIO: 
 ProductPriceHistory = sys.modules['models_file'].ProductPriceHistory
 InvoiceRateHistory = sys.modules['models_file'].InvoiceRateHistory
 
+# ✅ AUDITORÍA: Logs de seguridad
+AuditLog = sys.modules['models_file'].AuditLog
+
 # ✅ SISTEMA ESCRITORIO: Impuestos
 TaxType = sys.modules['models_file'].TaxType
 Tax = sys.modules['models_file'].Tax
@@ -78,6 +81,8 @@ __all__ = [
     'IGTFConfig',
     'CurrencyRateHistory',
     'DailyRate',
+    # ✅ AUDITORÍA: Logs de seguridad
+    'AuditLog',
     # ✅ SISTEMA ESCRITORIO: Impuestos
     'TaxType',
     'Tax',

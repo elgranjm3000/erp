@@ -1,9 +1,10 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from datetime import datetime
 import logging
 import os
 from sqlalchemy import text
+from middleware.audit import AuditMiddleware
 from fastapi.responses import JSONResponse
 
 
@@ -16,6 +17,7 @@ from routers.reference_prices import router as reference_prices_router  # ✅ PR
 from routers import sales_operations  # ✅ SISTEMA ESCRITORIO: Operaciones de venta
 from routers import taxes  # ✅ SISTEMA ESCRITORIO: Impuestos
 from routers import coins  # ✅ SISTEMA ESCRITORIO: Monedas (Coins)
+from routers import audit  # ✅ AUDITORÍA: Logs de seguridad
 # from routers.currencies_v2 import router as currencies_v2_router  # TEMPORALMENTE DESACTIVADO
 
 # Importar dependencias
@@ -57,6 +59,10 @@ app = FastAPI(
 # ⭐ CRÍTICO: Este middleware debe agregarse ANTES de los routers
 # ⭐ IMPORTANTE: No usar allow_origins=["*"] con allow_credentials=True
 
+# ✅ Auditoría de seguridad - debe ir primero
+app.add_middleware(AuditMiddleware)
+
+# ✅ Configurar CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=ALLOWED_ORIGINS,
@@ -108,6 +114,7 @@ app.include_router(reference_prices_router)  # Ya tiene prefix="/api/v1/referenc
 app.include_router(sales_operations.router, prefix="/api/v1", tags=["💼 ✅ Operaciones de Venta"])  # ✅ SISTEMA ESCRITORIO
 app.include_router(taxes.router, prefix="/api/v1", tags=["💰 ✅ Impuestos"])  # ✅ SISTEMA ESCRITORIO
 app.include_router(coins.router, prefix="/api/v1", tags=["💵 ✅ Monedas (Coins)"])  # ✅ SISTEMA ESCRITORIO
+app.include_router(audit.router, prefix="/api/v1", tags=["🔍 Auditoría"])  # ✅ AUDITORÍA: Logs de seguridad
 
 # ================= ENDPOINTS RAÍZ =================
 

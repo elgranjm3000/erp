@@ -10,7 +10,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Configuración de la URL de conexión para MySQL desde variable de entorno
-DATABASE_URL = os.getenv("DATABASE_URL", "mysql+mysqlconnector://root:tiger@localhost:3306/erp")
+DATABASE_URL = os.getenv("DATABASE_URL", "mysql+mysqlconnector://root:leonardo2025@localhost:3306/erp")
 
 
 engine = create_engine(DATABASE_URL)

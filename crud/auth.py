@@ -12,14 +12,16 @@ import models
 import sys
 # Importar schemas.py directamente para evitar importar el package schemas/
 import importlib.util
-spec = importlib.util.spec_from_file_location("schemas_file", "/home/muentes/devs/erp/schemas.py")
+spec = importlib.util.spec_from_file_location("schemas_file", "/home/erp/schemas.py")
 if 'schemas_file' not in sys.modules:
     schemas_file = importlib.util.module_from_spec(spec)
     sys.modules['schemas_file'] = schemas_file
     spec.loader.exec_module(schemas_file)
 schemas = sys.modules['schemas_file']
 from auth import hash_password, create_access_token
+from middleware.audit import log_audit, AuditActionType
 from config import ACCESS_TOKEN_EXPIRE_MINUTES
+from middleware.audit import log_audit, AuditActionType
 from .base import pwd_context
 
 # ================= AUTENTICACIÓN BÁSICA =================

@@ -7,7 +7,7 @@ Módulo CRUD refactorizado para mejor organización y escalabilidad
 import sys
 import importlib.util
 if 'schemas_py' not in sys.modules:
-    spec = importlib.util.spec_from_file_location("schemas_py", "/home/muentes/devs/erp/schemas.py")
+    spec = importlib.util.spec_from_file_location("schemas_py", "/home/erp/schemas.py")
     schemas_py = importlib.util.module_from_spec(spec)
     sys.modules['schemas_py'] = schemas_py
     spec.loader.exec_module(schemas_py)

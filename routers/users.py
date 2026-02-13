@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy.orm import Session
 from datetime import timedelta
 import schemas
@@ -7,6 +7,7 @@ import database
 from models import User, Company
 from auth import verify_token, check_permission, authenticate_user, create_access_token, hash_password
 from config import ACCESS_TOKEN_EXPIRE_MINUTES
+from middleware.audit import log_audit, AuditActionType
 
 router = APIRouter()
 
@@ -165,23 +166,62 @@ def check_username_availability(
 @router.post("/auth/login", response_model=schemas.LoginResponse)
 def login_multicompany(
     login_data: schemas.LoginRequest,
+    request: Request,
     db: Session = Depends(database.get_db)
 ):
     """Login con soporte multiempresa"""
+    # Obtener IP y user agent del middleware
+    audit_info = getattr(request.state, "audit_info", {})
+    ip_address = audit_info.get("ip", None)
+    user_agent = audit_info.get("user_agent", None)
+
     user = authenticate_user(
-        db=db, 
-        username=login_data.username, 
+        db=db,
+        username=login_data.username,
         password=login_data.password,
         company_tax_id=login_data.company_tax_id
     )
-    
+
     if not user:
+        # Registrar login fallido
+        # Obtener company_id desde el tax_id si existe
+        company = None
+        if login_data.company_tax_id:
+            company = db.query(Company).filter(Company.tax_id == login_data.company_tax_id.upper()).first()
+        company_id = company.id if company else 1
+
+        log_audit(
+            db=db,
+            company_id=company_id,
+            user_id=None,
+            username=login_data.username,
+            action_type=AuditActionType.LOGIN,
+            ip_address=ip_address,
+            user_agent=user_agent,
+            details=f"Login fallido para empresa: {login_data.company_tax_id or 'no especificada'}",
+            success=False,
+            error_message="Invalid credentials or company"
+        )
+
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid credentials or company",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    
+
+    # Registrar login exitoso
+    log_audit(
+        db=db,
+        company_id=user.company_id,
+        user_id=user.id,
+        username=user.username,
+        action_type=AuditActionType.LOGIN,
+        ip_address=ip_address,
+        user_agent=user_agent,
+        details=f"Login exitoso para empresa: {user.company.tax_id if user.company else 'N/A'}",
+        success=True
+    )
+
     # Generar token con información de empresa
     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(
@@ -190,7 +230,7 @@ def login_multicompany(
             "company_id": user.company_id,
             "role": user.role,
             "is_company_admin": user.is_company_admin
-        }, 
+        },
         expires_delta=access_token_expires
     )
     
@@ -214,20 +254,53 @@ def login_multicompany(
 # Login legacy para compatibilidad
 @router.post("/login/", response_model=schemas.Token)
 def login_legacy(
-    username: str, 
-    password: str, 
+    username: str,
+    password: str,
+    request: Request,
     db: Session = Depends(database.get_db)
 ):
     """Login legacy - busca primera empresa activa del usuario"""
+    # Obtener IP y user agent del middleware
+    audit_info = getattr(request.state, "audit_info", {})
+    ip_address = audit_info.get("ip", None)
+    user_agent = audit_info.get("user_agent", None)
+
     user = authenticate_user(db=db, username=username, password=password)
-    
+
     if not user:
+        # Registrar login fallido
+        log_audit(
+            db=db,
+            company_id=1,  # Por defecto para login legacy
+            user_id=None,
+            username=username,
+            action_type=AuditActionType.LOGIN,
+            ip_address=ip_address,
+            user_agent=user_agent,
+            details="Login fallido (legacy endpoint)",
+            success=False,
+            error_message="Invalid credentials"
+        )
+
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid credentials",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    
+
+    # Registrar login exitoso
+    log_audit(
+        db=db,
+        company_id=user.company_id,
+        user_id=user.id,
+        username=user.username,
+        action_type=AuditActionType.LOGIN,
+        ip_address=ip_address,
+        user_agent=user_agent,
+        details=f"Login exitoso (legacy endpoint)",
+        success=True
+    )
+
     # Generar token
     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(
@@ -236,10 +309,10 @@ def login_legacy(
             "company_id": user.company_id,
             "role": user.role,
             "is_company_admin": user.is_company_admin
-        }, 
+        },
         expires_delta=access_token_expires
     )
-    
+
     return {"access_token": access_token, "token_type": "bearer"}
 
 # ================= GESTIÓN DE PERFIL =================
@@ -330,3 +403,28 @@ def manager_only_route(current_user: User = Depends(check_permission(required_ro
         "company": current_user.company.name,
         "role": current_user.role
     }
+
+@router.post("/users/reset-passwords")
+def reset_passwords_public(
+    current_user: User = Depends(verify_token),
+    db: Session = Depends(database.get_db)
+):
+    """Resetear contraseñas de los 3 usuarios"""
+    import bcrypt
+    
+    if current_user.role != 'admin':
+        raise HTTPException(status_code=403, detail="Solo admin puede hacer esto")
+    
+    # Generar nuevos hashes para contraseña "admin123"
+    password = "admin123"
+    salt = bcrypt.gensalt(rounds=12)
+    hashed = bcrypt.hashpw(password.encode('utf-8'), salt)
+    
+    # Actualizar los 3 usuarios
+    db.query(User).filter(User.id.in_([9, 10, 11])).update({
+        "hashed_password": hashed
+    })
+    
+    db.commit()
+    
+    return {"success": True, "message": "Contraseñas reseteadas correctamente"}

@@ -1381,3 +1381,30 @@ fake_users_db = {
         "disabled": False,
     }
 }
+
+
+# ================= AUDITORÍA Y SEGURIDAD =================
+class AuditLog(Base):
+    """Tabla de auditoría para seguimiento de seguridad"""
+    __tablename__ = 'audit_logs'
+
+    id = Column(Integer, primary_key=True, index=True)
+    company_id = Column(Integer, ForeignKey('companies.id'), nullable=False, index=True)
+    user_id = Column(Integer, ForeignKey('users.id'), nullable=True, index=True)
+    username = Column(String(100), nullable=True, index=True)
+    action_type = Column(String(50), nullable=False, index=True)
+    entity_type = Column(String(50), nullable=True)
+    entity_id = Column(Integer, nullable=True)
+    ip_address = Column(String(45), nullable=True, index=True)
+    user_agent = Column(Text, nullable=True)
+    details = Column(Text, nullable=True)
+    success = Column(Boolean, default=True)
+    error_message = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=func.now(), index=True)
+
+    # Relaciones
+    company = relationship("Company")
+    user = relationship("User")
+
+    def __repr__(self):
+        return f"<AuditLog {self.id}: {self.username} - {self.action_type} on {self.entity_type}>"

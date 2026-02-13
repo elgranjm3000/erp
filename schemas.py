@@ -208,10 +208,10 @@ class ProductBase(BaseModel):
     sale_price_type: int = 0  # ✅ 0=Max, 1=Oferta, 2=Mayor, 3=Min, 4=Variable
 
     # ✅ Stock e inventario
-    quantity: int = 0  # Stock actual
-    stock_quantity: int = 0  # ✅ Stock actual (alternativo)
-    minimal_stock: int = 10  # ✅ Stock mínimo
-    maximum_stock: int = 0  # ✅ Stock máximo
+    quantity: Optional[int] = None  # Stock actual
+    stock_quantity: Optional[int] = None  # ✅ Stock actual (alternativo)
+    minimal_stock: Optional[int] = None  # ✅ Stock mínimo
+    maximum_stock: Optional[int] = None  # ✅ Stock máximo
     allow_negative_stock: bool = False  # ✅ Permitir vender sin stock
     serialized: bool = False  # ✅ Usa serial
     use_lots: bool = False  # ✅ Usa lotes
@@ -435,7 +435,7 @@ class WarehouseProductWithDetails(BaseModel):
     product_name: str
     product_description: Optional[str] = None
     product_sku: Optional[str] = None
-    product_price: int
+    product_price: float
 
     class Config:
         from_attributes = True
